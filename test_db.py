@@ -1,3 +1,4 @@
+# test_db.py
 import os, datetime
 import psycopg2
 
@@ -9,13 +10,19 @@ DB = dict(
     port=os.getenv("DB_PORT","5432"),
 )
 
-conn = psycopg2.connect(**DB)
-cur = conn.cursor()
-cur.execute("""
- INSERT INTO trades (timestamp, symbol, side, qty, price, fees, pnl, strategy_tag)
- VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-""", (datetime.datetime.now(), "TEST", "BUY", 1, 100.0, 0.0, 0.0, "smoke_test"))
-conn.commit()
-cur.close()
-conn.close()
-print("✅ Dummy trade inserted")
+def insert_dummy():
+    conn = psycopg2.connect(**DB)
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO trades (timestamp, symbol, side, qty, price, fees, pnl, strategy_tag, notes)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        RETURNING trade_id;
+    """, (datetime.datetime.now(), "SMOKE", "BUY", 1, 1.0, 0.0, 0.0, "smoke_test", "inserted by test_db"))
+    tid = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+    print(f"✅ Dummy trade inserted. trade_id={tid}")
+
+if __name__ == "__main__":
+    insert_dummy()
