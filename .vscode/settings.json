@@ -1,0 +1,18 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/venv/Scripts/python.exe",
+  "python.analysis.typeCheckingMode": "basic",
+  "python.formatting.provider": "black",
+  "editor.formatOnSave": true,
+  "files.exclude": {
+    "**/__pycache__": true,
+    "venv/": true,
+    "data/": true,
+    "logs/": true
+  },
+  "git.enableSmartCommit": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": true
+  },
+  "workbench.colorTheme": "Default Dark+"
+}
+
