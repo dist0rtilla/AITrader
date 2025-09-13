@@ -11,7 +11,7 @@
   },
   "git.enableSmartCommit": true,
   "editor.codeActionsOnSave": {
-    "source.organizeImports": true
+    "source.organizeImports": "explicit"
   },
   "workbench.colorTheme": "Default Dark+"
 }
