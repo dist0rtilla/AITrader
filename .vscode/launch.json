@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Run test_db.py",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/test_db.py",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/config/.env"
+    },
+    {
+      "name": "Python: Run Streamlit Dashboard",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/dashboard/app.py",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/config/.env"
+    }
+  ]
+}
