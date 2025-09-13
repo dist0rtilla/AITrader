@@ -1,48 +1,6 @@
-# =========================
-# Python artifacts
-# =========================
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-*.egg
 *.egg-info/
-.eggs/
-
-# Virtual environments
 venv/
-ENV/
-env/
-
-# Build / packaging
-build/
-dist/
-*.whl
-
-# =========================
-# Logs, data, caches
-# =========================
-*.log
-logs/
-*.sqlite3
-*.db
-data/
-reports/
-.ipynb_checkpoints/
-.cache/
-
-# =========================
-# Config / secrets
-# =========================
-config/.env
-*.pem
-*.key
-*.crt
-
-# =========================
-# OS / Editor
-# =========================
-.DS_Store
-Thumbs.db
 .vscode/
-.idea/
+config/.env
