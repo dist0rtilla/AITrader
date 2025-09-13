@@ -1,74 +1,130 @@
 # AITrader
 
-Small utility repository for bootstrapping and testing a PostgreSQL-backed trading data store.
+Lightweight experimental trading/AI environment — snapshot: 2025-09-14
 
-This repo currently contains a minimal DB schema and two helper scripts for initializing and testing the database connection.
+---
 
-Files
------
-- `test_db.py` — quick smoke-test script that connects to Postgres and inserts a dummy trade row into the `trades` table. Useful to verify connectivity and that the schema has been applied. Defaults (can be overridden with environment variables):
-	- DB_NAME: `trading`
-	- DB_USER: `trader`
-	- DB_PASS: `trader`
-	- DB_HOST: `localhost`
-	- DB_PORT: `5432`
+## Repository Layout
 
-- `db/init_db.py` — idempotent database bootstrap script. Reads and executes `db/schema.sql` against the configured Postgres database. Prints the list of tables in the `public` schema after applying the DDL. Defaults (can be overridden with environment variables):
-	- DB_NAME: `trading`
-	- DB_USER: `trader`
-	- DB_PASS: `securepass`
-	- DB_HOST: `localhost`
-	- DB_PORT: `5432`
-
-- `db/schema.sql` — the SQL DDL used by the migrator. Contains `CREATE TABLE IF NOT EXISTS` statements for:
-	- `trades` (individual executions)
-	- `positions` (current holdings)
-	- `portfolio` (daily snapshots)
-	- `risk_events` (risk log)
-	- An index `idx_trades_timestamp` on `trades(timestamp)`
-
-Prerequisites
--------------
-- Python 3.8+ (Windows)
-- PostgreSQL server accessible with the configured credentials
-- Python DB driver. For development on Windows install the wheel-friendly package:
-
-```powershell
-pip install psycopg2-binary
 ```
 
-Usage (PowerShell)
-------------------
-1. Set DB environment variables (optional). Example using built-in defaults will attempt to connect to a DB named `trading` with user `trader`:
+/ (repo root)
+├─ .gitignore            # files/dirs excluded from git
+├─ README.md             # this file
+├─ requirements.txt      # pinned Python dependencies
+├─ config/
+│  └─ .env.example       # template for DB config
+├─ db/
+│  ├─ init\_db.py         # initialize schema in Postgres
+│  └─ schema.sql         # schema definition (idempotent)
+├─ test\_db.py            # DB smoke test (inserts dummy trade)
+├─ test\_cuda.py          # simple CUDA check
+├─ small\_gpu\_test.py     # quick GPU compute test
+└─ venv/                 # (local virtualenv, should not be committed)
 
-```powershell
-$env:DB_NAME = 'trading'
-$env:DB_USER = 'trader'
-$env:DB_PASS = 'trader'
-$env:DB_HOST = 'localhost'
-$env:DB_PORT = '5432'
+````
+
+⚠️ If you see `venv/` in the repo, delete it and recreate it locally. The `.gitignore` already excludes it.
+
+---
+
+## Setup (Fresh Environment)
+
+1. **Create and activate venv:**
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+````
+
+2. **Configure PostgreSQL**
+   Create a database `trading` and a user `trader` with password `trader`.
+   Or adjust values in `config/.env`.
+
+Example `.env`:
+
+```ini
+DB_NAME=trading
+DB_USER=trader
+DB_PASS=trader
+DB_HOST=localhost
+DB_PORT=5432
 ```
 
-2. Initialize the database schema (runs `db/schema.sql`):
+Apply schema:
 
-```powershell
-python .\db\init_db.py
+```bash
+python db/init_db.py
 ```
 
-Expected output: DDL will be applied (idempotently), followed by a printed list of tables found in the `public` schema.
+3. **Quick tests:**
 
-3. Run the smoke test to insert a dummy trade:
-
-```powershell
-python .\test_db.py
+```bash
+python test_db.py       # insert dummy trade
+python test_cuda.py     # check torch + GPU
+python small_gpu_test.py
 ```
 
-Expected output: a confirmation line like "✅ Dummy trade inserted. trade_id=..."
+---
 
-Notes & Troubleshooting
------------------------
-- If the scripts fail to connect, verify your Postgres server is running and reachable at `DB_HOST:DB_PORT` and that the user/database exist and accept the provided password.
-- To create the database and user quickly from `psql` (adjust password and names as needed):
+## Expected Outputs
+
+**DB test:**
+
+```text
+DB config -> {'DB_NAME': 'trading', 'DB_USER': 'trader', 'DB_HOST': 'localhost', 'DB_PORT': '5432'}
+✅ Dummy trade inserted. trade_id=1
+```
+
+**CUDA test:**
+
+```text
+Torch version: 2.5.1+cu121
+CUDA available: True
+Device: NVIDIA GeForce GTX 1050
+```
+
+**Small GPU test:**
+
+```text
+tensor(89384.4297, device='cuda:0')
+```
+
+---
+
+## Notes on CUDA / Torch
+
+* Tested on:
+
+  * Ubuntu 22.04 (WSL2)
+  * NVIDIA GTX 1050
+  * Driver: 581.29
+  * CUDA version: 13.0
+* Requirements include CUDA-enabled PyTorch wheels:
+
+```text
+torch==2.5.1+cu121
+torchvision==0.20.1+cu121
+torchaudio==2.5.1+cu121
+```
+
+If CUDA setup fails, reinstall with:
+
+```bash
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+```
+
+---
+
+## Troubleshooting
+
+* If DB connection fails:
+
+  * Check Postgres is running (`sudo service postgresql status`)
+  * Verify user, password, and database exist.
+  * From `psql`:
 
 ```sql
 CREATE USER trader WITH PASSWORD 'trader';
@@ -76,18 +132,23 @@ CREATE DATABASE trading OWNER trader;
 GRANT ALL PRIVILEGES ON DATABASE trading TO trader;
 ```
 
-- On Windows, `psycopg2-binary` simplifies installation. For production deployments prefer `psycopg2` built from source or other proper packaging.
+* If CUDA is not detected in WSL2:
 
-Security
---------
-Do not commit real credentials. Use environment variables or a secrets manager in production.
+  * Ensure NVIDIA drivers are up to date on Windows.
+  * Check `nvidia-smi` works inside WSL2.
+  * Verify WSL2 GPU compute is enabled.
 
-Next steps (suggestions)
-------------------------
-- Add `requirements.txt` or `pyproject.toml` to pin dependencies.
-- Add a small integration test harness that boots a temporary Postgres (Docker) for CI.
-- Replace the simple DDL-runner with a proper migration tool (Alembic, Flyway, etc.) if schema evolution is required.
+---
 
-License
--------
-No license specified. Add one if you intend to open-source the repository.
+## Next Steps
+
+* Add CI harness (Dockerized Postgres for integration tests).
+* Replace schema bootstrapper with Alembic (for migrations).
+* Add trading strategy modules and logging.
+* Add LICENSE file (MIT/Apache recommended).
+
+---
+
+```
+
+---
