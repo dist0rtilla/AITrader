@@ -1,0 +1,141 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: aitrader
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+
+  mock-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mockmcp
+    environment:
+      PORT: 9000
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aitrader
+      REDIS_URL: redis://redis:6379/0
+      MCP_URL: http://mock-mcp:9000/mcp
+      PORT: 8000
+    depends_on:
+      - postgres
+      - redis
+      - mock-mcp
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["python", "-u", "backend/workers/worker.py"]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aitrader
+      REDIS_URL: redis://redis:6379/0
+      MCP_URL: http://mock-mcp:9000/mcp
+    depends_on:
+      - postgres
+      - redis
+      - mock-mcp
+
+  backend-initdb:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["python", "-u", "-c", "from backend.core.db import init_db; init_db(); print('db initialized')"]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aitrader
+    depends_on:
+      - postgres
+
+  tick_replay:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["python", "-u", "market_data/tick_replay.py"]
+    depends_on:
+      - redis
+
+  book_builder:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["python", "-u", "market_data/book_builder.py"]
+    depends_on:
+      - redis
+
+  pattern_engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["python", "-u", "pattern_engine/pattern_detector.py"]
+    depends_on:
+      - redis
+
+  strategy_engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["python", "-u", "strategy_engine/strategy_service.py"]
+    depends_on:
+      - redis
+      - mock-mcp
+
+  execution_simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["python", "-u", "execution_gateway/simulator.py"]
+    depends_on:
+      - redis
+
+  onnx_runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.onnx_runner
+    image: ai_trader_onnx_runner:latest
+    environment:
+      - ONNX_MODEL_PATH=/models/toy_cnn.onnx
+      - ONNX_RUNNER_HOST=0.0.0.0
+      - ONNX_RUNNER_PORT=8001
+    volumes:
+      - ./models:/models:ro
+      - ./pattern_engine:/app/pattern_engine:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8001/model/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile.frontend
+    image: ai_trader_frontend:latest
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend-main:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: aitrader-backend-main:dev
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  pgdata:

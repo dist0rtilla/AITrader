@@ -1,0 +1,19 @@
+# Full developer requirements including GPU / PyTorch builds
+# This file is large and intended for developer machines or CI that need GPU tooling.
+# Keep it separate from the minimal runtime requirements used to build container images.
+
+fastapi--extra-index-url https://download.pytorch.org/whl/cu121
+
+uvicorn[standard]torch==2.5.1+cu121
+
+httpxtorchvision==0.20.1+cu121
+
+psycopg2-binarytorchaudio==2.5.1+cu121
+
+redis
+
+python-dotenvalembic==1.12.0
+
+# (rest of original top-level requirements)
+
+# NOTE: This file is intentionally large and kept outside Docker builds by default.
