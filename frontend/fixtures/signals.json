@@ -1,0 +1,5 @@
+[
+  { "symbol": "AAPL", "score": 0.6, "source": "pattern_engine" },
+  { "symbol": "MSFT", "score": -0.4, "source": "pattern_engine" },
+  { "symbol": "TSLA", "score": 0.1, "source": "pattern_engine" }
+]

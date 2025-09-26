@@ -1,0 +1,7 @@
+/* minimal styles for Vite dev */
+body{font-family:Inter, system-ui, Arial, sans-serif;margin:20px;background:#071022;color:#e6eef6}
+.container{max-width:1100px;margin:0 auto}
+.logo{width:44px;height:44px;border-radius:8px;background:linear-gradient(135deg,#06f,#4f46e5);display:inline-flex;align-items:center;justify-content:center;font-weight:700}
+nav a{color:#9fb7ff;text-decoration:none}
+nav a + a{margin-left:12px}
+.card{background:#0b1220;padding:12px;border-radius:10px;margin-bottom:12px}
