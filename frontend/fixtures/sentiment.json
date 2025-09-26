@@ -1,0 +1,4 @@
+[
+  { "symbol": "AAPL", "sentiment_score": 0.2, "authenticity_score": 0.9 },
+  { "symbol": "MSFT", "sentiment_score": -0.1, "authenticity_score": 0.8 }
+]

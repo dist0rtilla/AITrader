@@ -1,0 +1,48 @@
+name: TRT CI (manual)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  trt-smoke:
+    # This job requires a self-hosted runner that has Docker and NVIDIA Container Toolkit
+    runs-on: [self-hosted, gpu]
+    strategy:
+      matrix:
+        trt_image: [nvcr.io/nvidia/tensorrt:23.11-py3, nvcr.io/nvidia/tensorrt:24.08-py3]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build MLP engine
+        run: |
+          set -eux
+          docker run --rm --gpus all -v "$PWD":/workspace -w /workspace ${MATRIX_TR_IMAGE:-${{ matrix.trt_image }}} \
+            python3 scripts/build_trt_engine.py --onnx models/toy_mlp.onnx --engine models/toy_mlp.engine --max_workspace=64M
+
+      - name: Build CNN engine
+        run: |
+          set -eux
+          docker run --rm --gpus all -v "$PWD":/workspace -w /workspace ${MATRIX_TR_IMAGE:-${{ matrix.trt_image }}} \
+            python3 scripts/build_trt_engine.py --onnx models/toy_cnn.onnx --engine models/toy_cnn.engine --max_workspace=256M --fp16
+
+      - name: Run smoke scripts (inside TRT container)
+        run: |
+          set -eux
+          docker run --rm --gpus all -v "$PWD":/workspace -w /workspace -e PYTHONPATH=/workspace ${MATRIX_TR_IMAGE:-${{ matrix.trt_image }}} \
+            bash -lc "pip3 install --no-cache-dir pycuda numpy; python3 scripts/_trt_smoke.py; python3 scripts/_trt_smoke_cnn.py"
+
+      - name: Run TRT vs CPU pytest (integration)
+        run: |
+          set -eux
+          # Run the specific integration pytest inside the TRT container with TRT_CI=1
+          docker run --rm --gpus all -v "$PWD":/workspace -w /workspace -e PYTHONPATH=/workspace -e TRT_CI=1 ${MATRIX_TR_IMAGE:-${{ matrix.trt_image }}} \
+            bash -lc "pip3 install --no-cache-dir pycuda numpy onnxruntime; pytest -q tests/test_trt_vs_cpu.py"
+
+      - name: Upload built engines (artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: trt-engines-${{ matrix.trt_image }}
+          path: |
+            models/toy_mlp.engine
+            models/toy_cnn.engine

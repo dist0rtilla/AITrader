@@ -1,0 +1,55 @@
+FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
+
+# Build argument to control whether TensorRT runtime is installed into the image.
+ARG INSTALL_TRT=1
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    ONNX_MODEL_PATH=/models/toy_cnn.onnx \
+    PORT=8001
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip python3-venv curl ca-certificates gnupg2 wget ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Add NVIDIA apt repo inside image to install cuDNN packages
+RUN mkdir -p /etc/apt/keyrings && \
+        # remove potential duplicate CUDA repo lists left in base image to avoid 'configured multiple times' errors
+        rm -f /etc/apt/sources.list.d/cuda-* /etc/apt/sources.list.d/nvidia-* || true && \
+        KEYRING=/usr/share/keyrings/cuda-archive-keyring.gpg && \
+        if [ ! -f "$KEYRING" ]; then \
+            curl -sSL https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub | gpg --dearmor -o /etc/apt/keyrings/nvidia.gpg && \
+            KEYRING=/etc/apt/keyrings/nvidia.gpg; \
+        fi && \
+        echo "deb [signed-by=$KEYRING] https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/ /" > /etc/apt/sources.list.d/nvidia-cuda.list && \
+        echo "deb [signed-by=$KEYRING] https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2204/x86_64/ /" > /etc/apt/sources.list.d/nvidia-machine-learning.list && \
+        apt-get update && apt-get install -y --no-install-recommends libcudnn9-cuda-12 libcublas-12-1 libcurand-12-1 && \
+        rm -rf /var/lib/apt/lists/*
+
+# Optionally install TensorRT runtime components (controlled by build-arg INSTALL_TRT)
+RUN if [ "${INSTALL_TRT}" = "1" ]; then \
+            apt-get update && apt-get install -y --no-install-recommends \
+                libnvinfer8 libnvinfer-plugin8 libnvparsers8 libnvonnxparsers8 || true && \
+            dpkg -l | grep -i nvinfer || true && \
+            ls -l /usr/lib/x86_64-linux-gnu/libnvinfer* || true && \
+            rm -rf /var/lib/apt/lists/*; \
+        else \
+            echo "Skipping TensorRT runtime install (INSTALL_TRT=${INSTALL_TRT})"; \
+        fi
+
+# copy project files required by runner
+WORKDIR /app
+COPY pattern_engine/onnx_runner.py pattern_engine/onnx_runner.py
+COPY pattern_engine/onnx_entrypoint.sh /usr/local/bin/onnx_entrypoint.sh
+COPY models/ /models
+
+RUN chmod +x /usr/local/bin/onnx_entrypoint.sh
+
+# Install Python deps (try a different onnxruntime-gpu version)
+RUN python3 -m pip install --upgrade pip setuptools wheel && \
+    python3 -m pip install fastapi uvicorn[standard] numpy pandas requests && \
+    python3 -m pip install --no-cache-dir onnxruntime-gpu==1.23.0
+
+EXPOSE 8001
+ENTRYPOINT ["/usr/local/bin/onnx_entrypoint.sh"]
+CMD [""]

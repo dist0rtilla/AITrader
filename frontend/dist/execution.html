@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Execution Window</title><link rel="stylesheet" href="/ui/styles.css"/></head><body>
+<div class="container">
+  <header><div class="logo">AI</div><div><h1>Execution Window</h1><div class="small">Run training/export jobs and test models</div></div></header>
+  <div class="card">
+    <h3>Run Export</h3>
+    <label>Out path: <input id="out" value="data/training_export.csv"/></label>
+    <button id="run">Start</button>
+    <div id="jobstatus"></div>
+  </div>
+  <div class="card">
+    <h3>Available Datasets</h3>
+    <div id="datasets">loading...</div>
+  </div>
+</div>
+<script>
+async function loadDatasets(){const r=await fetch('/api/datasets');const j=await r.json();document.getElementById('datasets').textContent=JSON.stringify(j,null,2)}
+loadDatasets()
+document.getElementById('run').onclick = async ()=>{
+  const out = document.getElementById('out').value
+  const r = await fetch('/api/export_training', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({out})})
+  const j = await r.json(); document.getElementById('jobstatus').textContent = JSON.stringify(j);
+}
+</script>
+</body></html>

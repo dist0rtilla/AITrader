@@ -1,0 +1,13 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Monitor</title></head>
+  <body>
+    <h1>Live Monitor</h1>
+    <pre id="out">connecting...</pre>
+    <script>
+      const ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host+'/api/ws/monitor')
+      ws.onmessage = (e)=>{ document.getElementById('out').textContent = e.data }
+      ws.onopen = ()=>console.log('open')
+    </script>
+  </body>
+</html>

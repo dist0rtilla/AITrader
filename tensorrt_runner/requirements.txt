@@ -1,0 +1,5 @@
+fastapi
+uvicorn[standard]
+# runtime deps for TensorRT execution (optional; only required when TRT is available):
+# tensorrt
+# pycuda

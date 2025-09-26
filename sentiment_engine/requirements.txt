@@ -1,0 +1,5 @@
+fastapi
+pydantic
+uvicorn[standard]
+transformers>=4.0.0 ; python_version >= '3.8'  # optional, pipeline used if available
+torch ; python_version >= '3.8'  # optional; if using HF models local GPU will accelerate

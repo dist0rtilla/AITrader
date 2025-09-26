@@ -1,0 +1,10 @@
+<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Database</title><link rel='stylesheet' href='/ui/styles.css'></head><body>
+<div class='container'>
+<header><div class='logo'>DB</div><div><h1>Database Explorer</h1><div class='small'>Browse tables and sample rows</div></div></header>
+<div class='card'><div id='tables'>loading...</div></div>
+</div>
+<script>
+async function loadTables(){ const r = await fetch('/api/db/tables'); const j = await r.json(); document.getElementById('tables').textContent = JSON.stringify(j,null,2) }
+loadTables()
+</script>
+</body></html>
