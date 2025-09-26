@@ -1,0 +1,17 @@
+# Docker Compose GPU override (optional)
+# Usage: docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+
+services:
+  onnx_runner:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # If your compose supports device_requests, uncomment and use the block below
+    #device_requests:
+    #  - driver: nvidia
+    #    count: all
+    #    capabilities: [gpu]

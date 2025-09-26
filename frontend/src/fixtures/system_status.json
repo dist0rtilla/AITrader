@@ -1,0 +1,17 @@
+{
+    "ts": 1700000000,
+    "components": {
+        "database": {
+            "path": "/var/lib/postgres/data",
+            "size_bytes": 123456789
+        },
+        "onnx_runner": {
+            "status": "ok"
+        },
+        "strategy_engine": {
+            "running": true,
+            "pid": 1234
+        }
+    },
+    "gpus": []
+}
