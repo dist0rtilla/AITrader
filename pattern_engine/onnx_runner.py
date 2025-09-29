@@ -21,10 +21,7 @@ import numpy as np
 import json
 import logging
 
-try:
-    import onnxruntime as ort
-except Exception:
-    ort = None
+ort = None
 
 MODEL_PATH = os.environ.get('ONNX_MODEL_PATH', 'models/toy_cnn.onnx')
 APP_HOST = os.environ.get('ONNX_RUNNER_HOST', '0.0.0.0')
@@ -39,15 +36,31 @@ app = FastAPI()
 class InferRequest(BaseModel):
     window: list
 
-# load session on import
 _session = None
 _input_name = None
 _output_name = None
 _model_shape = None
 
-if ort is None:
-    log.warning('onnxruntime not installed; ONNXRunner will not function until onnxruntime is installed')
-else:
+
+def init_onnx_session():
+    """Initialize the ONNX InferenceSession lazily.
+
+    This function will attempt to import `onnxruntime` and create an
+    InferenceSession using a sequence of provider variants (CUDA/Trt/CPU),
+    falling back to CPU if needed. It is safe to call multiple times.
+    """
+    global ort, _session, _input_name, _output_name, _model_shape
+
+    if _session is not None:
+        return _session
+
+    try:
+        import onnxruntime as ort  # type: ignore
+    except Exception:
+        log.warning('onnxruntime not installed; ONNXRunner will not function until onnxruntime is installed')
+        ort = None
+        return None
+
     # log available providers to help diagnose GPU vs CPU provider availability
     try:
         provs = ort.get_all_providers()
@@ -57,55 +70,62 @@ else:
 
     if not os.path.exists(MODEL_PATH):
         log.warning('ONNX model not found at %s', MODEL_PATH)
-    else:
-        providers = []
+        return None
+
+    cuda_dev = int(os.environ.get('CUDA_DEVICE', '0'))
+
+    def try_session_with_variants(model_path):
+        use_trt = os.environ.get('USE_TENSORRT', '') in ('1', 'true', 'True')
+        variants = []
+        if use_trt:
+            variants.append([( 'TensorrtExecutionProvider', {} ), ( 'CUDAExecutionProvider', {'device_id': cuda_dev} ), 'CPUExecutionProvider'])
+            variants.append([( 'TensorrtExecutionProvider', {} ), 'CPUExecutionProvider'])
+        variants.extend([
+            [( 'CUDAExecutionProvider', {'device_id': cuda_dev} ), 'CPUExecutionProvider'],
+            [( 'CUDAExecutionProvider', {'device_id': cuda_dev, 'cudnn_conv_algo_search': 'HEURISTIC'}), 'CPUExecutionProvider'],
+            [( 'CUDAExecutionProvider', {'device_id': cuda_dev, 'cudnn_conv_algo_search': 'EXHAUSTIVE'}), 'CPUExecutionProvider'],
+            [( 'CUDAExecutionProvider', {'device_id': cuda_dev, 'do_copy_in_default_stream': '1'}), 'CPUExecutionProvider'],
+            ['CPUExecutionProvider']
+        ])
+        last_exc = None
+        for variant in variants:
+            try:
+                log.info('Attempting InferenceSession with providers=%s', variant)
+                sess = ort.InferenceSession(model_path, providers=variant)
+                try:
+                    active = getattr(sess, 'get_providers', lambda: None)()
+                except Exception:
+                    active = None
+                log.info('Session created, active providers=%s', active)
+                return sess, variant, active
+            except Exception as e:
+                last_exc = e
+                log.warning('Session creation failed for providers=%s: %s', variant, e)
+                continue
+        if last_exc:
+            raise last_exc
+        return None, None, None
+
+    try:
+        sess, used_variant, active = try_session_with_variants(MODEL_PATH)
+        if sess is None:
+            raise RuntimeError('Failed to create any ONNX session')
+
+        _session = sess
+        inputs = sess.get_inputs()
+        outputs = sess.get_outputs()
+        if len(inputs) > 0:
+            _input_name = inputs[0].name
+            _model_shape = tuple(dim if isinstance(dim, int) else -1 for dim in inputs[0].shape)
+        if len(outputs) > 0:
+            _output_name = outputs[0].name
+        log.info('Loaded ONNX model %s requested_providers=%s active_providers=%s input=%s output=%s shape=%s', MODEL_PATH, used_variant, active, _input_name, _output_name, _model_shape)
+        return _session
+    except Exception as e:
         try:
-            # try multiple CUDA provider option variants to work around cuDNN backend failures
-            cuda_dev = int(os.environ.get('CUDA_DEVICE', '0'))
-
-            def try_session_with_variants(model_path):
-                # variants to try: tuples or provider names
-                # Allow using TensorRT first via env var USE_TENSORRT=1 for testing.
-                use_trt = os.environ.get('USE_TENSORRT', '') in ('1', 'true', 'True')
-                variants = []
-                if use_trt:
-                    # Try TensorRT first, then CUDA, then CPU
-                    variants.append([( 'TensorrtExecutionProvider', {} ), ( 'CUDAExecutionProvider', {'device_id': cuda_dev} ), 'CPUExecutionProvider'])
-                    variants.append([( 'TensorrtExecutionProvider', {} ), 'CPUExecutionProvider'])
-                # CUDA-based attempts with different provider options
-                variants.extend([
-                    [( 'CUDAExecutionProvider', {'device_id': cuda_dev} ), 'CPUExecutionProvider'],
-                    [( 'CUDAExecutionProvider', {'device_id': cuda_dev, 'cudnn_conv_algo_search': 'HEURISTIC'}), 'CPUExecutionProvider'],
-                    [( 'CUDAExecutionProvider', {'device_id': cuda_dev, 'cudnn_conv_algo_search': 'EXHAUSTIVE'}), 'CPUExecutionProvider'],
-                    [( 'CUDAExecutionProvider', {'device_id': cuda_dev, 'do_copy_in_default_stream': '1'}), 'CPUExecutionProvider'],
-                    ['CPUExecutionProvider']
-                ])
-                last_exc = None
-                for variant in variants:
-                    try:
-                        log.info('Attempting InferenceSession with providers=%s', variant)
-                        sess = ort.InferenceSession(model_path, providers=variant)
-                        try:
-                            active = getattr(sess, 'get_providers', lambda: None)()
-                        except Exception:
-                            active = None
-                        log.info('Session created, active providers=%s', active)
-                        return sess, variant, active
-                    except Exception as e:
-                        last_exc = e
-                        log.warning('Session creation failed for providers=%s: %s', variant, e)
-                        continue
-                # if all fail, raise last exception
-                if last_exc:
-                    raise last_exc
-                return None, None, None
-
-            sess, used_variant, active = try_session_with_variants(MODEL_PATH)
-            if sess is None:
-                raise RuntimeError('Failed to create any ONNX session')
-
+            log.warning('All CUDA session attempts failed, falling back to CPUExecutionProvider: %s', e)
+            sess = ort.InferenceSession(MODEL_PATH, providers=['CPUExecutionProvider'])
             _session = sess
-            # discover IO names
             inputs = sess.get_inputs()
             outputs = sess.get_outputs()
             if len(inputs) > 0:
@@ -113,31 +133,22 @@ else:
                 _model_shape = tuple(dim if isinstance(dim, int) else -1 for dim in inputs[0].shape)
             if len(outputs) > 0:
                 _output_name = outputs[0].name
-            log.info('Loaded ONNX model %s requested_providers=%s active_providers=%s input=%s output=%s shape=%s', MODEL_PATH, used_variant, active, _input_name, _output_name, _model_shape)
-        except Exception as e:
             try:
-                # fallback to CPU only
-                log.warning('All CUDA session attempts failed, falling back to CPUExecutionProvider: %s', e)
-                sess = ort.InferenceSession(MODEL_PATH, providers=['CPUExecutionProvider'])
-                _session = sess
-                inputs = sess.get_inputs()
-                outputs = sess.get_outputs()
-                if len(inputs) > 0:
-                    _input_name = inputs[0].name
-                    _model_shape = tuple(dim if isinstance(dim, int) else -1 for dim in inputs[0].shape)
-                if len(outputs) > 0:
-                    _output_name = outputs[0].name
-                try:
-                    active = getattr(sess, 'get_providers', lambda: None)()
-                except Exception:
-                    active = None
-                log.info('Loaded ONNX model %s (CPU fallback) active_providers=%s input=%s output=%s shape=%s', MODEL_PATH, active, _input_name, _output_name, _model_shape)
-            except Exception as e2:
-                log.exception('Failed to load ONNX model: %s ; %s', e, e2)
-                _session = None
+                active = getattr(sess, 'get_providers', lambda: None)()
+            except Exception:
+                active = None
+            log.info('Loaded ONNX model %s (CPU fallback) active_providers=%s input=%s output=%s shape=%s', MODEL_PATH, active, _input_name, _output_name, _model_shape)
+            return _session
+        except Exception as e2:
+            log.exception('Failed to load ONNX model: %s ; %s', e, e2)
+            _session = None
+            return None
 
 @app.post('/infer')
 async def infer(req: InferRequest):
+    # ensure session is initialized lazily
+    if _session is None:
+        init_onnx_session()
     if _session is None:
         raise HTTPException(status_code=500, detail='ONNX session not initialized')
     arr = np.array(req.window, dtype=np.float32)
@@ -187,12 +198,16 @@ async def infer(req: InferRequest):
 def model_status():
     info = {'model_path': MODEL_PATH, 'onnx_providers': [], 'onnx_provider_in_session': None}
     try:
-        if ort is not None:
-            info['onnx_providers'] = ort.get_all_providers()
+        # try to initialize ort lazily to collect provider info
+        init_onnx_session()
+        if 'ort' in globals() and ort is not None:
+            try:
+                info['onnx_providers'] = ort.get_all_providers()
+            except Exception:
+                info['onnx_providers'] = []
             # try to inspect session for provider
             if _session is not None:
                 try:
-                    # session.get_providers() may exist
                     info['onnx_provider_in_session'] = getattr(_session, 'get_providers', lambda: None)()
                 except Exception:
                     info['onnx_provider_in_session'] = None
@@ -202,6 +217,12 @@ def model_status():
 
 if __name__ == '__main__':
     import uvicorn
+    # initialize ONNX session lazily at startup (if possible)
+    try:
+        init_onnx_session()
+    except Exception:
+        log.exception('ONNX session initialization at startup failed')
+
     if UDS_PATH:
         log.info('Starting ONNXRunner on UDS %s', UDS_PATH)
         # uvicorn supports --uds, but programmatic run doesn't expose uds param in runner API prior to recent versions.

@@ -1,0 +1,23 @@
+# Frontend multi-stage build: build with node, serve with nginx (standalone)
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# Copy package files first for better caching
+COPY frontend/package.json frontend/package-lock.json* ./
+
+# Install dependencies with cache mount for faster rebuilds
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --only=production=false
+
+# Copy source code (this layer changes frequently)
+COPY frontend/ .
+
+# Build the application with cache mount
+RUN --mount=type=cache,target=/app/.vite \
+    npm run build
+
+FROM nginx:stable-alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY frontend/nginx.standalone.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["/usr/sbin/nginx", "-g", "daemon off;"]

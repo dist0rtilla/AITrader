@@ -1,3 +1,9 @@
-flask
-transformers>=4.0.0
-torch
+flask>=2.0.0
+transformers>=4.30.0
+# Note: torch can be large; CI or production may prefer a specific wheel (cpu or cuda).
+torch>=1.13.0
+
+# dev / test
+python-dotenv>=0.21.0
+pytest>=7.0.0
+requests>=2.28.0

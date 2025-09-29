@@ -3,7 +3,6 @@ import asyncio
 import logging
 from typing import Set
 
-import aioredis
 from fastapi import WebSocket
 
 logger = logging.getLogger("ws_broadcaster")
@@ -18,6 +17,13 @@ class WSBroadcaster:
     async def start(self):
         if self._task:
             return
+        # Import aioredis lazily so the app can start even when aioredis
+        # isn't installed in lightweight dev environments.
+        try:
+            import aioredis  # type: ignore
+            self._aioredis = aioredis
+        except Exception:
+            self._aioredis = None
         self._task = asyncio.create_task(self._run())
 
     async def stop(self):
@@ -34,7 +40,11 @@ class WSBroadcaster:
         backoff = 1
         while True:
             try:
-                self._redis = await aioredis.from_url(redis_url)
+                if not self._aioredis:
+                    logger.warning('aioredis not installed; WSBroadcaster will idle')
+                    await asyncio.sleep(60)
+                    continue
+                self._redis = await self._aioredis.from_url(redis_url)
                 pubsub = self._redis.pubsub()
                 await pubsub.subscribe('signals:global')
                 logger.info('WSBroadcaster subscribed to signals:global')

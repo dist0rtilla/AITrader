@@ -1,0 +1,67 @@
+FROM node:18-alpine AS builder
+WORKDIR /app
+
+# Install build dependencies for the frontend (use --prefix so npm runs in the frontend dir)
+COPY frontend/package.json frontend/package-lock.json frontend/
+RUN npm --prefix frontend ci --silent
+
+# Copy frontend source and build (output will be at /app/frontend/dist per vite config)
+COPY frontend/ frontend/
+# If the project stores a static template at frontend/static/index.html, ensure
+# Vite sees an `frontend/index.html` by copying it into place when missing.
+RUN if [ ! -f frontend/index.html ] && [ -f frontend/static/index.html ]; then cp frontend/static/index.html frontend/index.html; fi
+# Build the frontend and move the produced dist to a stable location (/app/dist)
+RUN npm --prefix frontend run build --silent && \
+		mkdir -p /app/dist && \
+		# Search for any `dist` folder under frontend/ (handles nested copies) and copy its contents
+		DIST_COPIED=0; \
+		for CAND in frontend/dist frontend/frontend/dist dist; do \
+			if [ -d "$CAND" ]; then \
+				echo "Found build output at $CAND"; \
+				cp -r "$CAND"/. /app/dist/ || true; \
+				DIST_COPIED=1; break; \
+			fi; \
+		done && \
+		# If nothing was copied, try to find any dist folder one level deep
+		if [ "$DIST_COPIED" -eq 0 ]; then \
+			for d in frontend/*; do \
+				if [ -d "$d/dist" ]; then echo "Found build output at $d/dist"; cp -r "$d/dist"/. /app/dist/ || true; DIST_COPIED=1; break; fi; \
+			done; \
+		fi && \
+		# Fallback: ensure an index.html exists by copying a reasonable static template
+			if [ -f /app/dist/index.html ]; then echo "index.html present in /app/dist"; \
+			else \
+								# Build a simple index.html that loads the first JS and CSS assets found in /app/dist/assets
+								JS_FILE=$(ls /app/dist/assets/*.js 2>/dev/null | head -n1 | xargs -n1 basename || true); \
+								CSS_FILE=$(ls /app/dist/assets/*.css 2>/dev/null | head -n1 | xargs -n1 basename || true); \
+								if [ -n "$JS_FILE" ]; then \
+																# Create index.html using simple echo/redirect to avoid complex quoting
+																{ \
+																	echo '<!doctype html>'; \
+																	echo '<html>'; \
+																	echo '  <head>'; \
+																	echo '    <meta charset="utf-8" />'; \
+																	echo '    <meta name="viewport" content="width=device-width, initial-scale=1.0">'; \
+																	echo '    <title>AITrader UI</title>'; \
+																	if [ -n "$CSS_FILE" ]; then echo "    <link rel=\"stylesheet\" href=\"/assets/$CSS_FILE\">"; fi; \
+																	echo '  </head>'; \
+																	echo '  <body>'; \
+																	echo '    <div id="root"></div>'; \
+																	echo "    <script type=\"module\" src=\"/assets/$JS_FILE\"></script>"; \
+																	echo '  </body>'; \
+																	echo '</html>'; \
+																	} > /app/dist/index.html; \
+																	echo "index.html generated at /app/dist/index.html"; \
+								else \
+										# fallback to static template if no assets were produced
+										if [ -f frontend/index.html ]; then cp frontend/index.html /app/dist/index.html; \
+										elif [ -f frontend/frontend/index.html ]; then cp frontend/frontend/index.html /app/dist/index.html; \
+										elif [ -f frontend/static/index.html ]; then cp frontend/static/index.html /app/dist/index.html; \
+										else echo "index.html not found after build and no assets available" && exit 1; fi; \
+								fi; \
+			fi
+
+FROM nginx:stable-alpine AS runtime
+COPY --from=builder /app/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

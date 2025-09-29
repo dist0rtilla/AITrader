@@ -1,0 +1,55 @@
+[
+  {
+    "symbol": "AAPL",
+    "score": 0.65,
+    "window": "1h",
+    "timestamp": "2025-09-27T02:45:00.000Z",
+    "sources": [
+      "twitter",
+      "reddit",
+      "news"
+    ]
+  },
+  {
+    "symbol": "TSLA",
+    "score": -0.42,
+    "window": "1h",
+    "timestamp": "2025-09-27T02:45:00.000Z",
+    "sources": [
+      "twitter",
+      "reddit",
+      "news"
+    ]
+  },
+  {
+    "symbol": "NVDA",
+    "score": 0.78,
+    "window": "1h",
+    "timestamp": "2025-09-27T02:45:00.000Z",
+    "sources": [
+      "twitter",
+      "reddit",
+      "news"
+    ]
+  },
+  {
+    "symbol": "MSFT",
+    "score": 0.23,
+    "window": "1h",
+    "timestamp": "2025-09-27T02:45:00.000Z",
+    "sources": [
+      "twitter",
+      "news"
+    ]
+  },
+  {
+    "symbol": "GOOGL",
+    "score": -0.15,
+    "window": "1h",
+    "timestamp": "2025-09-27T02:45:00.000Z",
+    "sources": [
+      "reddit",
+      "news"
+    ]
+  }
+]

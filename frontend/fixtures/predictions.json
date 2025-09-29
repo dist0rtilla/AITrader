@@ -1,0 +1,92 @@
+[
+    {
+        "id": "pred_001",
+        "symbol": "AAPL",
+        "time": "2025-09-28T14:30:00Z",
+        "values": [
+            175.25,
+            176.10,
+            177.80,
+            179.20,
+            180.15
+        ],
+        "horizon": 5,
+        "model": "N-BEATS",
+        "confidence": 0.87
+    },
+    {
+        "id": "pred_002",
+        "symbol": "MSFT",
+        "time": "2025-09-28T14:30:00Z",
+        "values": [
+            331.45,
+            332.80,
+            334.20,
+            335.90,
+            337.25
+        ],
+        "horizon": 5,
+        "model": "LSTM",
+        "confidence": 0.82
+    },
+    {
+        "id": "pred_003",
+        "symbol": "GOOGL",
+        "time": "2025-09-28T14:30:00Z",
+        "values": [
+            139.80,
+            140.50,
+            141.25,
+            142.10,
+            143.00
+        ],
+        "horizon": 5,
+        "model": "N-BEATS",
+        "confidence": 0.91
+    },
+    {
+        "id": "pred_004",
+        "symbol": "TSLA",
+        "time": "2025-09-28T14:30:00Z",
+        "values": [
+            245.30,
+            247.50,
+            249.80,
+            252.10,
+            254.45
+        ],
+        "horizon": 5,
+        "model": "Transformer",
+        "confidence": 0.78
+    },
+    {
+        "id": "pred_005",
+        "symbol": "NVDA",
+        "time": "2025-09-28T14:30:00Z",
+        "values": [
+            425.80,
+            428.40,
+            431.20,
+            434.50,
+            437.90
+        ],
+        "horizon": 5,
+        "model": "N-BEATS",
+        "confidence": 0.94
+    },
+    {
+        "id": "pred_006",
+        "symbol": "META",
+        "time": "2025-09-28T14:30:00Z",
+        "values": [
+            298.60,
+            300.20,
+            301.90,
+            303.75,
+            305.40
+        ],
+        "horizon": 5,
+        "model": "LSTM",
+        "confidence": 0.85
+    }
+]

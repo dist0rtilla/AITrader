@@ -11,16 +11,16 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-try:
-    import tensorrt as trt  # type: ignore
-    HAS_TRT = True
-except Exception:  # pragma: no cover - environment dependent
-    trt = None  # type: ignore
-    HAS_TRT = False
-
-
 def has_tensorrt() -> bool:
-    return HAS_TRT
+    """Check for TensorRT bindings lazily.
+
+    Returns True if tensorrt can be imported, False otherwise.
+    """
+    try:
+        import tensorrt  # type: ignore
+        return True
+    except Exception:
+        return False
 
 
 class TRTEngine:
@@ -32,7 +32,7 @@ class TRTEngine:
     """
 
     def __init__(self, engine_path: str):
-        if not HAS_TRT:
+        if not has_tensorrt():
             raise RuntimeError("TensorRT bindings not available in this environment")
         self.engine_path = engine_path
         self._load_engine()
@@ -41,6 +41,8 @@ class TRTEngine:
         # Basic serialization loader — expand as needed for CUDA context management.
         # Use a module-level TRT logger for consistent verbosity and to avoid
         # creating multiple transient logger instances.
+        # import TensorRT at load time to avoid import-time failures in CPU-only envs
+        import tensorrt as trt  # type: ignore
         TRT_LOGGER = trt.Logger(trt.Logger.INFO)
         runtime = trt.Runtime(TRT_LOGGER)
         with open(self.engine_path, "rb") as f:
@@ -225,9 +227,10 @@ def build_engine(onnx_path: str, engine_path: str, max_workspace_size: int = 1 <
     small and suitable for small models; for production use consider adding
     more robust error handling and builder flags.
     """
-    if not HAS_TRT:
+    if not has_tensorrt():
         raise RuntimeError("tensorrt Python bindings are required to build TRT engines")
 
+    import tensorrt as trt  # type: ignore
     TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
     logger.info("Building TRT engine from %s -> %s", onnx_path, engine_path)
     logger.debug("fp16=%s max_workspace=%d", fp16, int(max_workspace_size))

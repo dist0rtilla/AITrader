@@ -1,4 +1,10 @@
-fastapi
-pydantic
-uvicorn[standard]
-requests
+fastapi==0.104.1
+pydantic==2.5.0
+uvicorn[standard]==0.24.0
+requests==2.31.0
+pandas==2.1.4
+redis==5.0.1
+numpy==1.24.4
+sqlalchemy==2.0.23
+httpx==0.25.2
+aiohttp==3.9.1

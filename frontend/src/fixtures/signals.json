@@ -1,0 +1,57 @@
+[
+  {
+    "id": "sig_001",
+    "symbol": "AAPL",
+    "time": "2025-09-27T02:45:00.000Z",
+    "score": 0.75,
+    "meta": {
+      "pattern": "momentum_breakout",
+      "confidence": 0.82,
+      "volume_spike": 1.4
+    }
+  },
+  {
+    "id": "sig_002",
+    "symbol": "TSLA",
+    "time": "2025-09-27T02:44:30.000Z",
+    "score": -0.62,
+    "meta": {
+      "pattern": "resistance_rejection",
+      "confidence": 0.71,
+      "rsi": 72.3
+    }
+  },
+  {
+    "id": "sig_003",
+    "symbol": "NVDA",
+    "time": "2025-09-27T02:44:15.000Z",
+    "score": 0.88,
+    "meta": {
+      "pattern": "cup_and_handle",
+      "confidence": 0.93,
+      "breakout_volume": 2.1
+    }
+  },
+  {
+    "id": "sig_004",
+    "symbol": "MSFT",
+    "time": "2025-09-27T02:43:45.000Z",
+    "score": 0.35,
+    "meta": {
+      "pattern": "support_bounce",
+      "confidence": 0.58,
+      "bounce_strength": 0.6
+    }
+  },
+  {
+    "id": "sig_005",
+    "symbol": "GOOGL",
+    "time": "2025-09-27T02:43:20.000Z",
+    "score": -0.45,
+    "meta": {
+      "pattern": "descending_triangle",
+      "confidence": 0.64,
+      "breakdown_volume": 1.2
+    }
+  }
+]

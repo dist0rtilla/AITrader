@@ -1,4 +1,85 @@
 [
-  { "symbol": "AAPL", "sentiment_score": 0.2, "authenticity_score": 0.9 },
-  { "symbol": "MSFT", "sentiment_score": -0.1, "authenticity_score": 0.8 }
+  {
+    "symbol": "AAPL",
+    "score": 0.65,
+    "window": "1h",
+    "timestamp": "2025-09-28T14:30:00Z",
+    "sources": [
+      "Reuters",
+      "Bloomberg",
+      "WSJ"
+    ]
+  },
+  {
+    "symbol": "MSFT",
+    "score": -0.12,
+    "window": "1h",
+    "timestamp": "2025-09-28T14:30:00Z",
+    "sources": [
+      "CNBC",
+      "Financial Times"
+    ]
+  },
+  {
+    "symbol": "GOOGL",
+    "score": 0.38,
+    "window": "1h",
+    "timestamp": "2025-09-28T14:30:00Z",
+    "sources": [
+      "Bloomberg",
+      "MarketWatch"
+    ]
+  },
+  {
+    "symbol": "TSLA",
+    "score": -0.25,
+    "window": "1h",
+    "timestamp": "2025-09-28T14:30:00Z",
+    "sources": [
+      "Reuters",
+      "CNBC",
+      "WSJ"
+    ]
+  },
+  {
+    "symbol": "NVDA",
+    "score": 0.82,
+    "window": "1h",
+    "timestamp": "2025-09-28T14:30:00Z",
+    "sources": [
+      "Bloomberg",
+      "Financial Times",
+      "TechCrunch"
+    ]
+  },
+  {
+    "symbol": "META",
+    "score": 0.15,
+    "window": "1h",
+    "timestamp": "2025-09-28T14:30:00Z",
+    "sources": [
+      "WSJ",
+      "Reuters"
+    ]
+  },
+  {
+    "symbol": "AMZN",
+    "score": 0.43,
+    "window": "1h",
+    "timestamp": "2025-09-28T14:30:00Z",
+    "sources": [
+      "Bloomberg",
+      "CNBC"
+    ]
+  },
+  {
+    "symbol": "AMD",
+    "score": -0.08,
+    "window": "1h",
+    "timestamp": "2025-09-28T14:30:00Z",
+    "sources": [
+      "MarketWatch",
+      "Reuters"
+    ]
+  }
 ]

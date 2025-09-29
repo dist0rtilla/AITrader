@@ -1,17 +1,45 @@
 {
-    "ts": 1700000000,
+    "timestamp": "2025-09-27T03:00:00.000Z",
     "components": {
         "database": {
-            "path": "/var/lib/postgres/data",
-            "size_bytes": 123456789
+            "name": "PostgreSQL Database",
+            "status": "ok",
+            "running": true,
+            "uptime": "2h 15m",
+            "version": "15.3",
+            "details": "Connected, 123MB"
         },
         "onnx_runner": {
-            "status": "ok"
+            "name": "ONNX Model Runner",
+            "status": "ok",
+            "running": true,
+            "uptime": "1h 45m",
+            "version": "1.15.1",
+            "details": "N-BEATS model loaded"
         },
         "strategy_engine": {
+            "name": "Strategy Engine",
+            "status": "warn",
             "running": true,
-            "pid": 1234
+            "uptime": "2h 10m",
+            "version": "0.1.0",
+            "details": "High CPU usage (85%)"
+        },
+        "mock_mcp": {
+            "name": "Mock MCP Server",
+            "status": "ok",
+            "running": true,
+            "uptime": "2h 20m",
+            "version": "0.1.0",
+            "details": "Serving mock account data"
+        },
+        "pattern_engine": {
+            "name": "Pattern Engine",
+            "status": "error",
+            "running": false,
+            "uptime": "0s",
+            "version": "0.1.0",
+            "details": "Connection timeout to tick feed"
         }
-    },
-    "gpus": []
+    }
 }

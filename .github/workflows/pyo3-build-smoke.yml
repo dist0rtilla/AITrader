@@ -1,0 +1,99 @@
+name: pyo3-build-and-smoke
+
+on:
+  push:
+    branches: [ main, 'cleanup/*', '**' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: --health-cmd "redis-cli ping || exit 1" --health-interval 5s --health-timeout 5s --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/pypoetry
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            pattern_engine/pyo3_wrapper/target
+            pattern_engine/target
+          key: ${{ runner.os }}-cargo-${{ matrix.python-version }}-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.python-version }}-
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install maturin
+        run: |
+          python -m pip install --upgrade pip
+          pip install maturin==1.2.2
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # install pytest and redis client so the integration assertions run
+          pip install pytest redis==5.*
+
+      - name: Build and install pyo3 extension (maturin develop)
+        working-directory: pattern_engine/pyo3_wrapper
+        run: |
+          # Build and install into the runner's virtualenv
+          maturin develop --release --manifest-path Cargo.toml
+
+      - name: Run Python smoke test
+        env:
+          REDIS_URL: redis://localhost:6379
+        run: |
+      # Wait for Redis service to be reachable by pinging it with redis-py
+      python - <<'PY'
+import os, time, sys, redis
+url = os.environ.get('REDIS_URL', 'redis://localhost:6379')
+client = redis.from_url(url)
+deadline = time.time() + 30
+while time.time() < deadline:
+  try:
+    if client.ping():
+      print('redis ready')
+      break
+  except Exception:
+    pass
+  time.sleep(1)
+else:
+  print('redis did not become ready in time')
+  sys.exit(1)
+PY
+
+      # Execute the full smoke test file end-to-end
+      pytest -q pattern_engine/tests/smoke_pytest.py

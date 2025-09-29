@@ -39,9 +39,20 @@ def startup():
         return
     log.info('TensorRT runner ready (engine=%s)', ENGINE_PATH)
 
-@app.get('/model/status')
-def status():
-    return {'engine_path': ENGINE_PATH, 'has_tensorrt': HAS_TRT}
+@app.get('/health')
+def health():
+    """Health check endpoint - returns service health status"""
+    return {'status': 'healthy', 'service': 'tensorrt_runner'}
+
+@app.get('/ready')
+def ready():
+    """Readiness check endpoint - returns if service is ready to serve requests"""
+    return {'status': 'ready', 'service': 'tensorrt_runner', 'has_tensorrt': HAS_TRT}
+
+@app.get('/metrics')
+def metrics():
+    """Metrics endpoint - returns service metrics in Prometheus format"""
+    return {'service': 'tensorrt_runner', 'has_tensorrt': HAS_TRT, 'engine_path': ENGINE_PATH}
 
 @app.post('/infer')
 def infer(req: InferReq):

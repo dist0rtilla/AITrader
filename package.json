@@ -1,0 +1,19 @@
+{
+  "name": "trading-ai",
+  "version": "1.0.0",
+  "description": "This repository contains the AITrader project scaffold following the architecture specified in `docs/instructions/copilot-instructions.md`. We implement a dual‑path architecture supporting both AI day trading and low‑latency pattern/strategy execution pipeline suitable for scalping/arbitrage prototypes.",
+  "main": "mcp-server.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

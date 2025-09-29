@@ -3,8 +3,25 @@
 export interface ComponentInfo {
     id: string;
     name: string;
-    status: 'ok' | 'warn' | 'error';
+    status: 'ok' | 'warn' | 'error' | 'warning';
     details?: string;
+    uptime?: string;
+    version?: string;
+    memory?: string;
+    cpu?: string;
+    gpu?: string;
+    port?: number;
+    requests?: string;
+    patterns?: string;
+    sentiment?: string;
+    strategies?: string;
+    feeds?: string;
+    connections?: string;
+    tasks?: string;
+    ticks?: string;
+    books?: string;
+    executions?: string;
+    inferences?: string;
 }
 
 export interface GPUInfo {
@@ -40,4 +57,57 @@ export interface SettingsSnapshot {
     settings: Record<string, any>;
     updatedAt?: string;
     updatedBy?: string;
+}
+
+export interface Prediction {
+    id: string;
+    symbol: string;
+    time: string; // ISO
+    values: number[];
+    horizon?: number;
+    model?: string;
+    confidence?: number;
+}
+
+export interface SentimentData {
+    symbol: string;
+    score: number; // -1..1
+    window: string;
+    timestamp: string;
+    sources?: string[];
+}
+
+export interface ComponentMetrics {
+    id: string;
+    name: string;
+    metrics: {
+        cpu?: number;
+        memory?: number;
+        requests_per_second?: number;
+        error_rate?: number;
+        uptime?: number;
+    };
+    timestamp: string;
+}
+
+export interface TrainingJob {
+    id: string;
+    model: string;
+    status: 'pending' | 'running' | 'completed' | 'failed';
+    progress?: number;
+    createdAt: string;
+    completedAt?: string;
+    metrics?: Record<string, number>;
+}
+
+export interface ExecutionOrder {
+    id: string;
+    symbol: string;
+    side: 'buy' | 'sell';
+    quantity: number;
+    price?: number;
+    status: 'pending' | 'filled' | 'cancelled' | 'rejected';
+    timestamp: string;
+    fillPrice?: number;
+    fillQuantity?: number;
 }
