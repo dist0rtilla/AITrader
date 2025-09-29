@@ -1,3 +1,4 @@
+. # See docs/fast-builds.md for recommended fast-iteration .dockerignore tips
 node_modules
 .git
 .gitignore
@@ -37,3 +38,22 @@ Thumbs.db
 **/*.test.ts
 **/*.spec.js
 **/*.spec.ts
+
+# Fast-build additions (merged from .dockerignore.fast)
+frontend/node_modules
+frontend/dist
+**/node_modules
+models/
+pattern_engine/onnx/
+pattern_engine/onnx/**
+**/__pycache__/
+**/*.pyc
+.venv/
+.env
+**/tests/
+**/*.test.*
+.git
+.vscode
+.idea
+tmp/
+*.log
