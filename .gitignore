@@ -25,6 +25,8 @@ models/**/*.pt
 models/**/*.bin
 models/**/*.tar.gz
 pattern_engine/target/
+pattern_engine/pyo3_wrapper/target/
+pattern_engine/**/target/
 pattern_engine/*.trt
 pattern_engine/*.engine
 pattern_engine/onnx/*.onnx
