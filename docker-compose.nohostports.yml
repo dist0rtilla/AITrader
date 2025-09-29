@@ -12,17 +12,18 @@ services:
   redis:
     image: redis:7
 
-  mock-mcp:
-    build:
-      context: .
-      dockerfile: Dockerfile.mockmcp
-    environment:
-      PORT: 9000
+  # TODO: Create Dockerfile.mockmcp for mock MCP service
+  # mock-mcp:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.mockmcp
+  #   environment:
+  #     PORT: 9000
 
   backend:
     build:
       context: .
-      dockerfile: Dockerfile.backend
+      dockerfile: backend/Dockerfile
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aitrader
       REDIS_URL: redis://redis:6379/0
@@ -36,7 +37,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: Dockerfile.backend
+      dockerfile: backend/Dockerfile
     command: ["python", "-u", "backend/workers/worker.py"]
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aitrader
@@ -50,7 +51,7 @@ services:
   backend-initdb:
     build:
       context: .
-      dockerfile: Dockerfile.backend
+      dockerfile: backend/Dockerfile
     command: ["python", "-u", "-c", "from backend.core.db import init_db; init_db(); print('db initialized')"]
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aitrader
@@ -60,7 +61,7 @@ services:
   tick_replay:
     build:
       context: .
-      dockerfile: Dockerfile.backend
+      dockerfile: backend/Dockerfile
     command: ["python", "-u", "market_data/tick_replay.py"]
     depends_on:
       - redis
@@ -68,7 +69,7 @@ services:
   book_builder:
     build:
       context: .
-      dockerfile: Dockerfile.backend
+      dockerfile: backend/Dockerfile
     command: ["python", "-u", "market_data/book_builder.py"]
     depends_on:
       - redis
@@ -76,7 +77,7 @@ services:
   pattern_engine:
     build:
       context: .
-      dockerfile: Dockerfile.backend
+      dockerfile: backend/Dockerfile
     command: ["python", "-u", "pattern_engine/pattern_detector.py"]
     depends_on:
       - redis
@@ -84,7 +85,7 @@ services:
   strategy_engine:
     build:
       context: .
-      dockerfile: Dockerfile.backend
+      dockerfile: backend/Dockerfile
     command: ["python", "-u", "strategy_engine/strategy_service.py"]
     depends_on:
       - redis
@@ -93,7 +94,7 @@ services:
   execution_simulator:
     build:
       context: .
-      dockerfile: Dockerfile.backend
+      dockerfile: backend/Dockerfile
     command: ["python", "-u", "execution_gateway/simulator.py"]
     depends_on:
       - redis
@@ -119,22 +120,11 @@ services:
 
   frontend:
     build:
-      context: frontend
+      context: .
       dockerfile: Dockerfile.frontend
     image: ai_trader_frontend:latest
     depends_on:
       - backend
-    restart: unless-stopped
-
-  backend-main:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    image: aitrader-backend-main:dev
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      - redis
     restart: unless-stopped
 
 volumes:

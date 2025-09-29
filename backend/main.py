@@ -5,7 +5,9 @@ import asyncio
 import logging
 from typing import Set
 from fastapi import WebSocket
-from backend.ws_broadcaster import broadcaster
+from .ws_broadcaster import broadcaster
+from .api.endpoints import api_router
+from .api.health import router as health_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("backend.main")
@@ -19,6 +21,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include API routes
+app.include_router(api_router)
+app.include_router(health_router)
 
 # Connected WebSocket clients are managed by ws_broadcaster
 _clients: Set[WebSocket] = set()

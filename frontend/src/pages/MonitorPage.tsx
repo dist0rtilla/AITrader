@@ -1,114 +1,277 @@
-import { useState } from 'react'
-import TopNav from '../components/layout/TopNav'
-import ComponentCard from '../components/monitor/ComponentCard'
-import { ToastProvider, useToast } from '../components/ui/Toast'
-import useSystemStatus from '../hooks/useSystemStatus'
-import useWebSocket from '../hooks/useWebSocket'
+/**
+ * MonitorPage — Main dashboard displaying overall system status with real-time updates
+ */
+
+import { Activity, Heart, TrendingUp, Zap } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import MLForecastsTable from '../components/forecasts/MLForecastsTable';
+import EventTicker from '../components/monitor/EventTicker';
+import SystemsMonitor from '../components/monitor/SystemsMonitor';
+import SignalsMonitor from '../components/signals/SignalsMonitor';
+import { Badge } from '../components/ui/badge';
+import usePredictions from '../hooks/usePredictions';
+import useSignals from '../hooks/useSignals';
+import useSystemStatus from '../hooks/useSystemStatus';
+import useWebSocket from '../hooks/useWebSocket';
+import { WebSocketEvent } from '../types';
 
 export default function MonitorPage() {
-    const status = useSystemStatus()
-    const [events, setEvents] = useState<any[]>([])
+  const { status: systemStatus, loading: statusLoading, error: statusError, refetch: refreshStatus } = useSystemStatus();
+  const { isConnected, lastEvent } = useWebSocket('/api/ws/monitor', {
+    onEvent: (event: WebSocketEvent) => {
+      console.log('WebSocket event:', event);
+      // Handle real-time events here
+    },
+    autoConnect: true
+  });
+  const [recentEvents, setRecentEvents] = useState<any[]>([]);
 
-    useWebSocket('/api/ws/monitor', (ev: any) => {
-        // prepend events
-        setEvents((s) => [ev, ...s].slice(0, 100))
-    })
+  // Get recent signals and predictions for dashboard summary
+  const { signals, loading: signalsLoading, error: signalsError } = useSignals({
+    filter: { limit: 10 },
+    autoRefresh: true
+  });
+  const { predictions } = usePredictions({
+    filter: { limit: 3 },
+    autoRefresh: false
+  });
 
-    return (
-        <ToastProvider>
-            <MonitorInner status={status} events={events} setEvents={setEvents} />
-        </ToastProvider>
-    )
-
-
-    function MonitorInner({ status, events, setEvents }: { status: any; events: any[]; setEvents: (v: any) => void }) {
-        const toast = useToast()
-
-        async function handleRestart(id: string) {
-            try {
-                const res = await fetch(`/api/components/${id}/restart`, { method: 'POST' })
-                if (!res.ok) throw new Error('Restart failed')
-                toast.push({ message: `Restarted ${id}`, type: 'success' })
-            } catch (e) {
-                console.error('restart error', e)
-                toast.push({ message: `Restart failed: ${String(e)}`, type: 'error' })
-            }
-        }
-
-        return (
-            <div className="container mx-auto p-6">
-                <TopNav />
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold">Monitor</h2>
-                    <div className="text-sm text-neutral-400">{status && status.ts ? `Last: ${new Date(status.ts * 1000).toLocaleString()}` : 'Loading...'}</div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="md:col-span-2">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {status ? Object.entries(status.components).map(([k, v]: any) => (
-                                <ComponentCard key={k} name={k} meta={v} onRestart={handleRestart} />
-                            )) : <div>loading...</div>}
-                        </div>
-                    </div>
-
-                    <aside className="bg-neutral-800 p-4 rounded-lg shadow-elevation-1">
-                        <h3 className="text-lg font-medium mb-2">Events</h3>
-                        <div className="flex flex-col gap-2 max-h-96 overflow-auto">
-                            {events.length === 0 && <div className="text-sm text-neutral-400">No recent events</div>}
-                            {events.map((e: any, idx: number) => (
-                                <div key={idx} className="text-sm text-neutral-200">
-                                    <div className="font-semibold">{String(e.type)}</div>
-                                    <div className="text-neutral-400">{JSON.stringify(e.payload)}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </aside>
-                </div>
-            </div>
-        )
+  // Track recent WebSocket events for activity feed
+  useEffect(() => {
+    if (lastEvent) {
+      setRecentEvents(prev => [
+        { ...lastEvent, timestamp: new Date().toISOString() },
+        ...prev.slice(0, 9) // Keep last 10 events
+      ]);
     }
-    async function handleRestart(id: string) {
-        try {
-            await fetch(`/api/components/${id}/restart`, { method: 'POST' })
-        } catch (e) {
-            console.error('restart error', e)
-        }
-    }
+  }, [lastEvent]);
 
-    return (
-        <div className="container mx-auto p-6">
-            <TopNav />
-            <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold">Monitor</h2>
-                <div className="text-sm text-neutral-400">{status ? `Last: ${new Date(status.ts * 1000).toLocaleString()}` : 'Loading...'}</div>
-            </div>
+  // components is already an array in the correct format
+  const componentsArray = systemStatus?.components || [];
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {(() => {
-                            const compObj = status && (status as any).components ? (status as any).components : null
-                            if (!compObj) return <div>loading...</div>
-                            const compsArr = Object.entries(compObj)
-                            return compsArr.map(([k, v]: any) => <ComponentCard key={k} name={k} meta={v} onRestart={handleRestart} />)
-                        })()}
-                    </div>
-                </div>
+  if (statusLoading && !systemStatus) {
+    return <div className="flex items-center justify-center h-64">Loading system status...</div>;
+  }
 
-                <aside className="bg-neutral-800 p-4 rounded-lg shadow-elevation-1">
-                    <h3 className="text-lg font-medium mb-2">Events</h3>
-                    <div className="flex flex-col gap-2 max-h-96 overflow-auto">
-                        {events.length === 0 && <div className="text-sm text-neutral-400">No recent events</div>}
-                        {events.map((e, idx) => (
-                            <div key={idx} className="text-sm text-neutral-200">
-                                <div className="font-semibold">{e.type}</div>
-                                <div className="text-neutral-400">{JSON.stringify(e.payload)}</div>
-                            </div>
-                        ))}
-                    </div>
-                </aside>
-            </div>
+  return (
+    <div className="space-y-10 min-h-screen">
+      {/* Enhanced header with glass styling */}
+      <div className="glass-container rounded-glass p-8 flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <div className="p-3 glass-card rounded-glass-button animate-float">
+            <Activity className="w-8 h-8 text-accent-primary" />
+          </div>
+          <div>
+            <h1 className="text-4xl font-bold text-glass-bright mb-2">System Monitor</h1>
+            <p className="text-glass-muted">Real-time monitoring of all trading components</p>
+          </div>
         </div>
-    )
+        <div className="flex items-center gap-4">
+          <Badge
+            variant="outline"
+            className={`px-4 py-2 font-medium border-glass backdrop-blur-card ${isConnected
+                ? 'bg-status-ok-bg border-status-ok-border text-status-ok'
+                : 'bg-status-error-bg border-status-error-border text-status-error'
+              }`}
+          >
+            <div className={`w-2 h-2 rounded-full mr-2 ${isConnected ? 'bg-status-ok animate-pulse-glow' : 'bg-status-error animate-pulse-glow'
+              }`} />
+            {isConnected ? 'Connected' : 'Disconnected'}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Enhanced stats dashboard with glass morphism */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <div className="glass-card glass-hover-lift rounded-glass-card p-6 group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm text-glass-muted font-medium uppercase tracking-wide">Components</div>
+            <div className="p-2 glass-button rounded-glass-button group-hover:shadow-glow-sm transition-all duration-300">
+              <Heart className="w-4 h-4 text-accent-teal" />
+            </div>
+          </div>
+          <div className="text-3xl font-bold text-glass-bright mb-2 group-hover:text-white transition-colors duration-300">
+            {componentsArray.length}
+          </div>
+          <div className="text-sm text-glass-muted flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-status-ok" />
+            {componentsArray.filter(c => c.status === 'ok').length} healthy systems
+          </div>
+        </div>
+
+        <div className="glass-card glass-hover-lift rounded-glass-card p-6 group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm text-glass-muted font-medium uppercase tracking-wide">Recent Signals</div>
+            <div className="p-2 glass-button rounded-glass-button group-hover:shadow-glow-sm transition-all duration-300">
+              <Zap className="w-4 h-4 text-accent-primary" />
+            </div>
+          </div>
+          <div className="text-3xl font-bold text-glass-bright mb-2 group-hover:text-white transition-colors duration-300">
+            {signals?.length || 0}
+          </div>
+          <div className="text-sm text-glass-muted flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-accent-primary" />
+            {signals?.filter(s => s.score > 0.3).length || 0} bullish patterns
+          </div>
+        </div>
+
+        <div className="glass-card glass-hover-lift rounded-glass-card p-6 group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm text-glass-muted font-medium uppercase tracking-wide">Active Predictions</div>
+            <div className="p-2 glass-button rounded-glass-button group-hover:shadow-glow-sm transition-all duration-300">
+              <TrendingUp className="w-4 h-4 text-accent-emerald" />
+            </div>
+          </div>
+          <div className="text-3xl font-bold text-glass-bright mb-2 group-hover:text-white transition-colors duration-300">
+            {predictions?.length || 0}
+          </div>
+          <div className="text-sm text-glass-muted flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-accent-emerald" />
+            ML forecasts running
+          </div>
+        </div>
+
+        <div className="glass-card glass-hover-lift rounded-glass-card p-6 group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm text-glass-muted font-medium uppercase tracking-wide">Live Events</div>
+            <div className="p-2 glass-button rounded-glass-button group-hover:shadow-glow-sm transition-all duration-300">
+              <Activity className="w-4 h-4 text-accent-amber" />
+            </div>
+          </div>
+          <div className="text-3xl font-bold text-glass-bright mb-2 group-hover:text-white transition-colors duration-300">
+            {recentEvents.length}
+          </div>
+          <div className="text-sm text-glass-muted flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-accent-amber" />
+            last 10 minutes
+          </div>
+        </div>
+      </div>
+
+      {/* Enhanced main content grid with glass layout */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        {/* Left Column - Systems Monitor with glass container */}
+        <div className="xl:col-span-8 space-y-8">
+          {/* System Components */}
+          <div className="glass-container rounded-glass p-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 glass-card rounded-glass-button">
+                <Heart className="w-5 h-5 text-accent-teal" />
+              </div>
+              <h2 className="text-2xl font-bold text-glass-bright">System Components</h2>
+            </div>
+            <SystemsMonitor
+              components={componentsArray}
+              loading={statusLoading}
+              error={statusError || undefined}
+              onRestart={async (id: string) => {
+                try {
+                  const res = await fetch(`/api/components/${id}/restart`, { method: 'POST' });
+                  if (!res.ok) throw new Error('Restart failed');
+                  // Refresh status after restart
+                  refreshStatus();
+                } catch (e) {
+                  console.error('restart error', e);
+                  throw e;
+                }
+              }}
+            />
+          </div>
+
+          {/* Live Systems Activity */}
+          <div className="glass-container rounded-glass p-8 flex flex-col">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 glass-card rounded-glass-button">
+                <Activity className="w-5 h-5 text-accent-amber" />
+              </div>
+              <h2 className="text-2xl font-bold text-glass-bright">Live Systems Activity</h2>
+            </div>
+            <div className="flex-1 min-h-0">
+              <EventTicker
+                className="h-full"
+                maxEvents={100}
+                autoScroll={true}
+                showFilters={true}
+                compactMode={false}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column - Signals Monitor and Activity with glass styling */}
+        <div className="xl:col-span-4 space-y-8">
+          {/* Signals Monitor with glass container and height constraint */}
+          <div className="glass-container rounded-glass p-8 flex flex-col">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 glass-card rounded-glass-button">
+                <Zap className="w-5 h-5 text-accent-primary" />
+              </div>
+              <h2 className="text-2xl font-bold text-glass-bright">Trading Signals</h2>
+            </div>
+            <div className="flex-1 min-h-0">
+              <SignalsMonitor
+                signals={signals || []}
+                loading={signalsLoading}
+                error={signalsError || undefined}
+              />
+            </div>
+          </div>
+
+          {/* ML Forecasts */}
+          <div className="glass-container rounded-glass p-8 flex flex-col">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 glass-card rounded-glass-button">
+                <TrendingUp className="w-5 h-5 text-accent-emerald" />
+              </div>
+              <h2 className="text-2xl font-bold text-glass-bright">ML Forecasts</h2>
+            </div>
+            <div className="flex-1 min-h-0">
+              <MLForecastsTable
+                forecasts={[]}
+                loading={false}
+                error={undefined}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Enhanced Debug Info with glass styling */}
+      {(!isConnected || statusError) && (
+        <div className="glass-container rounded-glass p-8 border-l-4 border-status-warn">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 glass-card rounded-glass-button">
+              <Activity className="w-5 h-5 text-status-warn" />
+            </div>
+            <h3 className="text-xl font-bold text-status-warn">Debug Information</h3>
+          </div>
+          <div className="glass-card rounded-glass-card p-6 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-glass-muted">Connection State:</span>
+              <Badge variant="outline" className={`border-glass ${isConnected ? 'bg-status-ok-bg border-status-ok-border text-status-ok' : 'bg-status-error-bg border-status-error-border text-status-error'
+                }`}>
+                {isConnected ? 'Connected' : 'Disconnected'}
+              </Badge>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-glass-muted">Last Update:</span>
+              <span className="text-glass font-mono text-sm">{systemStatus?.timestamp}</span>
+            </div>
+            {statusError && (
+              <div className="flex justify-between items-start">
+                <span className="text-glass-muted">Error:</span>
+                <span className="text-status-error font-mono text-sm max-w-xs text-right">{statusError}</span>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={refreshStatus}
+            className="mt-6 glass-button border-glass text-glass-muted hover:text-glass-bright hover:border-glass-bright hover:shadow-glass-card px-4 py-2 rounded-glass-button transition-all duration-300"
+          >
+            Refresh Status
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }

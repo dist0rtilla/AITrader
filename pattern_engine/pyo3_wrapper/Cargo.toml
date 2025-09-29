@@ -1,0 +1,12 @@
+[package]
+name = "pattern_engine_pyo3"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "pattern_engine_pyo3"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.18", features = ["extension-module"] }
+pattern_engine = { path = "..", package = "pattern_engine" }

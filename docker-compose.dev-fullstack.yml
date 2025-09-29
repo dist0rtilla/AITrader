@@ -1,0 +1,234 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: aitrader
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  mock-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mockmcp
+    environment:
+      PORT: 9000
+    ports:
+      - "9000:9000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aitrader
+      REDIS_URL: redis://redis:6379/0
+      MCP_URL: http://mock-mcp:9000/mcp
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+      - mock-mcp
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["python", "-u", "backend/workers/worker.py"]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aitrader
+      REDIS_URL: redis://redis:6379/0
+      MCP_URL: http://mock-mcp:9000/mcp
+    depends_on:
+      - postgres
+      - redis
+      - mock-mcp
+
+  backend-initdb:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["python", "-u", "-c", "from backend.core.db import init_db; init_db(); print('db initialized')"]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aitrader
+    depends_on:
+      - postgres
+
+  tick_replay:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["python", "-u", "market_data/tick_replay.py"]
+    depends_on:
+      - redis
+
+  book_builder:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["python", "-u", "market_data/book_builder.py"]
+    depends_on:
+      - redis
+
+  pattern_engine:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["python", "-u", "pattern_engine/pattern_detector.py"]
+    depends_on:
+      - redis
+
+  strategy_engine:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["python", "-u", "strategy_engine/enhanced_strategy_service.py"]
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - MCP_URL=http://mock-mcp:9000/mcp
+      - ONNX_RUNNER_URL=http://onnx_runner:8001
+      - SENTIMENT_ENGINE_URL=http://sentiment_engine:8002
+      - TENSORRT_RUNNER_URL=http://tensorrt_runner:8007
+    depends_on:
+      - redis
+      - mock-mcp
+      - onnx_runner
+      - sentiment_engine
+
+  execution_simulator:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["python", "-u", "execution_gateway/simulator.py"]
+    depends_on:
+      - redis
+
+  # GPU-enabled ONNX Runner (use docker compose with --gpus or docker run --gpus all)
+  onnx_runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.onnx_runner
+    image: ai_trader_onnx_runner:latest
+    environment:
+      - ONNX_MODEL_PATH=/models/toy_cnn.onnx
+      - ONNX_RUNNER_HOST=0.0.0.0
+      - ONNX_RUNNER_PORT=8001
+    volumes:
+      - ./models:/models:ro
+      - ./pattern_engine:/app/pattern_engine:ro
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8001/model/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Sentiment analysis engine with FinBERT support
+  sentiment_engine:
+    build:
+      context: .
+      dockerfile: sentiment_engine/Dockerfile
+    image: ai_trader_sentiment_engine:latest
+    environment:
+      - FINBERT_URL=http://finbert_server:5000
+    ports:
+      - "8002:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # Optional FinBERT server for enhanced sentiment analysis
+  finbert_server:
+    build:
+      context: .
+      dockerfile: finbert_server/Dockerfile
+    image: ai_trader_finbert_server:latest
+    ports:
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # TensorRT runner for GPU-accelerated inference
+  tensorrt_runner:
+    build:
+      context: .
+      dockerfile: tensorrt_runner/Dockerfile
+    image: ai_trader_tensorrt_runner:latest
+    environment:
+      - TRT_ENGINE_PATH=/models/model.plan
+    volumes:
+      - ./models:/models:ro
+    ports:
+      - "8007:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/model/status"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # Development frontend with hot reload
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.dev
+    container_name: trading-ai-frontend-dev
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount source code for hot reload
+      - ./frontend/src:/app/src:ro
+      - ./frontend/public:/app/public:ro
+      - ./frontend/index.html:/app/index.html:ro
+      - ./frontend/package.json:/app/package.json:ro
+      - ./frontend/vite.config.ts:/app/vite.config.ts:ro
+      - ./frontend/tsconfig.json:/app/tsconfig.json:ro
+      - ./frontend/tailwind.config.cjs:/app/tailwind.config.cjs:ro
+      - ./frontend/postcss.config.cjs:/app/postcss.config.cjs:ro
+      # Exclude node_modules from volume mounting (use container's version)
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+      - DOCKER=true
+    command: npm run dev -- --host 0.0.0.0 --port 8080
+    depends_on:
+      - backend
+    networks:
+      - trading-ai_default
+
+
+
+volumes:
+  pgdata:
+
+networks:
+  trading-ai_default:
+    external: true

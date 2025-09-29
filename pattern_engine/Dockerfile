@@ -1,15 +1,54 @@
-FROM nvcr.io/nvidia/tensorrt:23.11-py3
+# Multi-stage build for Rust Pattern Engine
+FROM rust:latest AS builder
 
-LABEL org.opencontainers.image.source="https://github.com/dist0rtilla/AITrader"
-LABEL maintainer="team@example.com"
+# Install required packages for building
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Small image showing how to run the pattern_engine with TensorRT runtime preinstalled.
-WORKDIR /workspace
-COPY . /workspace
+# Set working directory
+WORKDIR /app
 
-# Install minimal Python deps for running TRTEngine smoke scripts in the container
-RUN apt-get update && apt-get install -y --no-install-recommends python3-pip && rm -rf /var/lib/apt/lists/*
-RUN pip3 install --no-cache-dir pycuda numpy || true
+# Copy Cargo files
+COPY Cargo.toml Cargo.lock ./
 
-# Default: open a shell. For automated runs, mount the repo and run the build/test commands
-CMD ["/bin/bash"]
+# Create dummy src to cache dependencies
+RUN mkdir src && echo "fn main() {}" > src/main.rs && echo "" > src/lib.rs
+RUN cargo build --release && rm -rf src
+
+# Copy source code
+COPY src ./src
+
+# Build the application
+RUN cargo build --release
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app user
+RUN useradd -r -s /bin/false appuser
+
+# Copy binary from builder
+COPY --from=builder /app/target/release/pattern_engine /usr/local/bin/pattern_engine
+
+# Set ownership
+RUN chown appuser:appuser /usr/local/bin/pattern_engine
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8005
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8005/health || exit 1
+
+# Run the application
+CMD ["pattern_engine"]

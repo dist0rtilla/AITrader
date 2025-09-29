@@ -1,0 +1,20 @@
+name: Documentation CI
+
+on: [push, pull_request]
+
+jobs:
+  validate-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check links and file references
+        run: ./hostexecs/check_links.sh || ./scripts/check_links.sh
+
+  validate-ports:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check port availability
+        run: ./hostexecs/validate_ports.sh || ./scripts/validate_ports.sh

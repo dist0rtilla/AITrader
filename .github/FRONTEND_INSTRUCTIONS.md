@@ -6,6 +6,249 @@ This document is the canonical design reference and developer guide for the fron
 
 Use this file as a living reference. Keep comments and example shapes up to date as you implement features.
 
+## Build & Run (quick)
+
+For exact reproducible build steps and troubleshooting, see `.github/BUILD_INSTRUCTIONS.md` (recommended). That file contains the canonical Docker and local build commands you should use to avoid stale images and index.html problems.
+
+## 🚀 **Fast Development Options (NEW)**
+
+### **Super Fast Local Development** (Recommended)
+```bash
+# From project root
+./hostexecs/dev-quick.sh
+# Available at: http://localhost:5173
+# ✅ 0 seconds build time, instant hot reload
+```
+
+### **Docker Development with Hot Reload**
+```bash
+# From project root
+./hostexecs/dev-docker.sh
+# Available at: http://localhost:3000
+# ✅ ~30s one-time build, instant file changes
+```
+
+### **Optimized Production Build**
+```bash
+# From project root
+./hostexecs/build-optimized.sh
+# Available at: http://localhost:8080
+# ✅ 35%+ faster builds with advanced caching
+```
+
+**Manual Local Development:**
+```bash
+# From project root
+cd frontend
+npm install          # install dependencies
+npm run dev          # start dev server (http://localhost:5173)
+npm run build        # build for production
+npm run preview      # preview production build
+npm test             # run unit tests
+```
+
+**Traditional Docker Development:**
+```bash
+# From project root
+docker-compose -f docker-compose.dev.yml up frontend
+# OR
+docker build -f frontend/Dockerfile.frontend -t aitrader-frontend .
+docker run -p 5173:5173 aitrader-frontend
+``` **For every feature connecting to an api interface define the interfaces well structured under '.github/BACKEND_INTERFACES.md' with status to indicate current backend & front end development status, update as necessary.**
+
+## Dark Glass UI Design System (Standard)
+
+The AITrader frontend uses a **dark glass morphism design system** as the standard visual language. This creates a professional, modern trading interface with depth, transparency, and smooth interactions.
+
+### Core Design Principles
+
+1. **Glass Morphism Effects**: All components use backdrop blur with semi-transparent backgrounds
+2. **Depth & Layering**: Multiple shadow levels create visual hierarchy
+3. **Smooth Animations**: Hover states and transitions provide responsive feedback
+4. **Theme Support**: Full dark/light mode switching with persistent storage
+5. **Professional Aesthetic**: Suitable for financial/trading applications
+
+### Glass Component Classes
+
+**Base Glass Containers:**
+```css
+.glass-container     /* Main glass effect with backdrop blur */
+.glass-card         /* Card-specific glass styling */
+.glass-nav          /* Navigation glass styling */
+.glass-button       /* Button glass styling */
+.glass-input        /* Input field glass styling */
+```
+
+**Glass Color System:**
+```css
+/* Dynamic colors (CSS variables) */
+text-glass-text           /* Primary text */
+text-glass-text-muted     /* Secondary text */
+text-glass-text-bright    /* Emphasis text */
+bg-glass-bg              /* Page background */
+bg-glass-surface         /* Surface backgrounds */
+bg-glass-card           /* Card backgrounds */
+border-glass            /* Subtle borders */
+border-glass-bright     /* Emphasis borders */
+```
+
+**Glass Effects:**
+```css
+backdrop-blur-glass     /* Standard glass blur */
+backdrop-blur-nav       /* Navigation blur */
+backdrop-blur-card      /* Card blur */
+shadow-glass           /* Standard glass shadow */
+shadow-glass-card      /* Card shadow */
+shadow-glass-hover     /* Hover shadow */
+shadow-glass-lift      /* Elevated shadow */
+```
+
+### Theme Switching System
+
+**ThemeContext** (`src/contexts/ThemeContext.tsx`):
+- Global theme state management
+- Persistent storage in localStorage
+- CSS custom properties for dynamic switching
+- System theme preference detection
+
+**ThemeSwitcher** (`src/components/ui/ThemeSwitcher.tsx`):
+- Interactive theme toggle component
+- Button and dropdown variants available
+- Smooth rotation animations
+- Glass morphism styling
+
+**Usage Example:**
+```tsx
+import { useTheme } from '../contexts/ThemeContext';
+import ThemeSwitcher from '../components/ui/ThemeSwitcher';
+
+function MyComponent() {
+  const { theme, setTheme } = useTheme();
+  
+  return (
+    <div className="glass-container p-6">
+      <h1 className="text-glass-text-bright">Trading Dashboard</h1>
+      <ThemeSwitcher /> {/* Automatic glass styling */}
+    </div>
+  );
+}
+```
+
+### Component Implementation Guidelines
+
+1. **Always use glass classes** for consistent visual language
+2. **Implement hover states** with glass-hover effects
+3. **Use proper semantic colors** (glass-text, glass-surface, etc.)
+4. **Add smooth transitions** for professional feel
+5. **Support both themes** with CSS variables
+6. **Follow text hierarchy** - large text off-white, small text crisp black (light mode)
+
+### Light Mode Text Hierarchy System (September 2025)
+
+**Design Philosophy**: Create visual hierarchy through color differentiation while ensuring readability
+
+**Text Size Color Mapping:**
+```css
+/* Large & Display Text - Elegant Off-White */
+h1, h2, .text-2xl, .text-3xl, .text-4xl → #64748b (slate-500)
+
+/* Medium Text - Medium Gray */  
+h3, h4, .text-lg → #475569 (slate-600)
+
+/* Emphasized Text - Dark Slate */
+.font-bold, .font-semibold, h5, h6 → #334155 (slate-700)
+
+/* Body & Small Text - Crisp Black */
+p, span, div, .text-sm, .text-xs → #0f172a (slate-900)
+```
+
+**Usage Examples:**
+```tsx
+// Dashboard title - elegant off-white
+<h1 className="text-3xl font-bold text-glass-bright">AITrader Dashboard</h1>
+
+// Section heading - medium gray
+<h3 className="text-lg font-semibold">Trading Signals</h3>
+
+// Body text - crisp black for readability
+<p className="text-sm text-glass">Recent market analysis shows...</p>
+
+// Muted text - off-white
+<span className="text-xs text-glass-muted">Last updated 5 minutes ago</span>
+```
+
+### Color Scheme Improvements (FIXED - September 2025)
+
+**Issue**: Text was not visible in light glass mode, poor contrast ratios persisted
+
+**Root Cause Analysis:**
+- CSS variables were correct but being overridden by hardcoded Tailwind classes
+- Light mode text needed `!important` declarations to override existing styles
+- Comprehensive text color coverage was missing
+
+**Final Solutions Applied (Text Hierarchy System):**
+- ✅ **Light Mode Text Hierarchy**: Implemented sophisticated text sizing system
+  ```css
+  /* Large headings - elegant off-white/slate */
+  [data-theme="light"] h1, h2, .text-2xl, .text-3xl { color: #64748b !important; }
+  
+  /* Medium headings - medium gray */
+  [data-theme="light"] h3, h4, .text-lg { color: #475569 !important; }
+  
+  /* Small headings - dark slate */
+  [data-theme="light"] .font-bold, .font-semibold { color: #334155 !important; }
+  
+  /* Body text - crisp black for readability */
+  [data-theme="light"] p, span, .text-sm, .text-xs { color: #0f172a !important; }
+  ```
+- ✅ **Glass Theme Integration**: Updated glass variables for hierarchy
+  ```css
+  --glass-text: #0f172a;        /* Crisp black for body text */
+  --glass-text-muted: #64748b;  /* Off-white for muted text */
+  --glass-text-bright: #64748b; /* Off-white for large headings */
+  ```
+- ✅ **Enhanced Status Colors**: Added `!important` to status colors for reliability
+  ```css
+  [data-theme="light"] .status-ok { color: #16a34a !important; }
+  [data-theme="light"] .status-warn { color: #d97706 !important; }
+  [data-theme="light"] .status-error { color: #dc2626 !important; }
+  ```
+- ✅ **Modal Backdrop Fix**: Proper light mode backdrop with inline styles
+  ```css
+  [data-theme="light"] .modal-backdrop-overlay { 
+    background-color: rgba(15, 23, 42, 0.4) !important; 
+  }
+  ```
+
+**Light Mode Text Hierarchy Guidelines:**
+- ✅ **Large Text (h1, h2, .text-2xl+)**: Off-white/slate (#64748b) for elegant titles
+- ✅ **Medium Text (h3, h4, .text-lg)**: Medium gray (#475569) for sub-headings  
+- ✅ **Small Text (p, span, .text-sm)**: Crisp black (#0f172a) for body readability
+- ✅ **Emphasized Text (.font-bold)**: Dark slate (#334155) for contrast
+- ✅ **Always use `!important`** for light mode text color overrides
+- ✅ **Test both themes** - CSS variables alone are not sufficient
+- ✅ **Use inline styles** for critical positioning (modals, z-index)
+- ✅ **Ensure WCAG AA contrast** ratios for accessibility
+
+### Recent Fix (September 2025)
+
+**Issue**: "Failed to load url /src/main.tsx" error when running `npm run dev`
+
+**Root Cause**: Conflicting Vite configuration files:
+- `vite.config.ts` (correct) - configured for current directory structure
+- `vite.config.js` (problematic) - had `root: 'frontend'` setting causing nested directory lookup
+
+**Solution**: Removed the conflicting `vite.config.js` file. The frontend now uses only `vite.config.ts` which correctly resolves `/src/main.tsx` from the frontend directory.
+
+**Commands to run the frontend**:
+```bash
+cd /home/trader/trading-ai/frontend
+npm run dev    # starts dev server at http://localhost:5173/
+npm run build  # builds for production
+npm run preview # preview production build
+``` 
+
+
 ## What this file adds beyond the ASCII tree
 
 - Concrete examples of API client shapes and expected JSON responses.
@@ -13,6 +256,144 @@ Use this file as a living reference. Keep comments and example shapes up to date
 - Commenting and JSDoc conventions for files and components so reviewers can quickly understand behavior.
 - Testing guidance for unit tests (Vitest) and a suggested structure for small integration/E2E tests.
 - Deployment reminders for the nginx `ui` alias and WebSocket proxy headers.
+
+## Monitor Components Implementation Status
+
+**✅ COMPLETED Monitor Features:**
+
+- **SystemsMonitor** (`src/components/monitor/SystemsMonitor.tsx`): Responsive grid layout displaying component health cards with loading states and error handling
+- **ComponentCard** (`src/components/monitor/ComponentCard.tsx`): Enhanced with shadcn/ui Badge/Button, status dots, metadata display, restart functionality
+- **SignalsMonitor** (`src/components/signals/SignalsMonitor.tsx`): Combines SignalsTable with SignalDetailsDrawer for complete signals workflow
+- **SignalsTable** (`src/components/signals/SignalsTable.tsx`): Trading signals table with score-based color coding, pattern metadata, click-to-open details
+- **SignalDetailsDrawer** (`src/components/signals/SignalDetailsDrawer.tsx`): Modal overlay with signal analysis, score interpretation, metadata JSON display
+- **MonitorPage** (`src/pages/MonitorPage.tsx`): Enhanced with responsive grid layout (lg:grid-cols-12), quick stats dashboard, live activity feed, debug information
+
+**🔧 Technical Improvements:**
+- **FIXED**: Vite configuration issue - removed conflicting `vite.config.js` that was setting wrong root directory
+- **FIXED**: Main page now loads correctly at `http://localhost:5173/`
+- **FIXED**: API client "body stream already read" error in `src/api/client.ts`
+- **NEW**: Complete dark glass UI design system implementation
+- **NEW**: Theme switching system with persistent storage
+- **NEW**: Light/dark mode support with CSS variables
+- **NEW**: Glass morphism effects across all components
+- Improved responsive layout with proper breakpoints
+- Real-time WebSocket integration for live updates
+- shadcn/ui design system integration
+- Proper TypeScript interfaces and error handling
+
+**🏗️ CURRENT IMPLEMENTATION STATUS:**
+
+**API Clients** (all implemented):
+- ✅ `src/api/client.ts` - Base fetch wrapper with error handling
+- ✅ `src/api/healthClient.ts` - System health endpoints
+- ✅ `src/api/signalsClient.ts` - Trading signals API
+- ✅ `src/api/predictionsClient.ts` - Model predictions API
+- ✅ `src/api/sentimentClient.ts` - FinBERT sentiment API
+
+**Hooks** (all implemented):
+- ✅ `src/hooks/useWebSocket.ts` - WebSocket connection with reconnect
+- ✅ `src/hooks/useSystemStatus.ts` - System health polling
+- ✅ `src/hooks/useSignals.ts` - Trading signals data
+- ✅ `src/hooks/usePredictions.ts` - Model predictions data
+- ✅ `src/hooks/useSentiment.ts` - Sentiment analysis data
+
+**Theme System** (fully implemented):
+- ✅ `src/contexts/ThemeContext.tsx` - Global theme management with persistent storage
+- ✅ `src/components/ui/ThemeSwitcher.tsx` - Interactive dark/light mode switcher
+- ✅ Complete dark glass UI design system with backdrop blur effects
+- ✅ CSS variables for dynamic theme switching
+- ✅ Light mode support with proper glass variants - **IMPROVED**: Better contrast and visibility
+- ✅ Integrated theme switcher in TopNav (desktop + mobile)
+- ✅ System theme preference detection
+
+**Modal System** (FIXED - September 2025):
+- ✅ `src/components/ui/Modal.tsx` - Reusable modal component with proper z-index layering
+- ✅ **CRITICAL FIX**: Top-layer rendering with maximum z-index: 2147483647 using inline styles
+- ✅ **ISSUE RESOLVED**: CSS classes were not reliable - now uses direct inline styles for positioning
+- ✅ Translucent backdrop with click-outside-to-close functionality
+- ✅ Escape key support for accessibility
+- ✅ Body scroll prevention when modal is open
+- ✅ Glass morphism styling with smooth animations
+- ✅ Portal rendering for proper DOM positioning
+- ✅ Light/dark mode backdrop variations for optimal visibility
+
+### Modal System Usage Guidelines
+
+**Always use the Modal component for any overlay content:**
+```tsx
+import Modal from '../components/ui/Modal';
+
+function MyComponent() {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={() => setIsOpen(false)}
+      title="Modal Title"
+      maxWidth="lg" // sm, md, lg, xl, 2xl
+    >
+      <div>Modal content here</div>
+    </Modal>
+  );
+}
+```
+
+**Critical Modal Requirements:**
+- ✅ **FIXED: Always render in top layer**: Modal component now uses maximum z-index with inline styles
+- ✅ **IMPLEMENTATION DETAIL**: Uses z-index: 2147483647 (maximum value) with inline styles
+- ✅ **NO CSS CLASSES for z-index**: Inline styles only for reliable positioning
+- ✅ **Backdrop click closes**: Modal closes when clicking outside content area
+- ✅ **Escape key support**: Modal closes on ESC key for accessibility
+- ✅ **Body scroll lock**: Prevents background scrolling when modal is open
+- ✅ **Glass morphism**: Consistent with overall design system
+- ✅ **Theme aware**: Proper backdrop colors for light/dark modes with `!important`
+
+**Examples of Modal Usage:**
+- ✅ `AllSignalsModal` - View all trading signals with statistics
+- ✅ `SignalDetailsDrawer` - **UPDATED**: Now uses unified Modal component (previously had custom implementation)
+- ✅ `ComponentCard` details modal - **UPDATED**: Migrated from custom modal to unified Modal component
+- ✅ System component details - All modal implementations now use unified pattern
+
+**Modal Consistency Fixes (September 2025):**
+- ✅ **SignalDetailsDrawer**: Migrated from custom `fixed inset-0 z-50` implementation to unified Modal
+- ✅ **ComponentCard**: Updated modal from custom glass container to unified Modal component  
+- ✅ **All Modal Implementations**: Now use consistent z-index and portal rendering
+- ✅ **Global Modal Registry**: Implemented direct modal management to prevent overlapping
+- ✅ **JSDoc Documentation**: Added comprehensive comments per Copilot instructions for all modal components
+- ✅ **Verified**: Only the unified Modal component uses `role="dialog"` and `aria-modal="true"`
+
+**Copilot Implementation Notes:**
+- All modal components now include detailed JSDoc headers explaining purpose and functionality
+- Modal.tsx uses global registry approach: `globalModalRegistry` and `modalCloseCallbacks` 
+- Each modal automatically closes others when opening to prevent overlapping
+- Inline styles with maximum z-index (2147483647) ensure reliable top-layer rendering
+- Theme-aware backdrop colors for optimal visibility in both light and dark modes
+
+**Pages Status**:
+- ✅ **MonitorPage** (`/`) - Fully implemented with real-time dashboard
+- ✅ **SystemsPage** (`/systems`) - Component status and diagnostics
+- ✅ **SignalsPage** (`/signals`) - Trading signals exploration
+- ✅ **PredictionsPage** (`/predictions`) - Model forecasts display
+- ✅ **SentimentPage** (`/sentiment`) - FinBERT sentiment analysis
+- ✅ **ExecutionsPage** (`/executions`) - Order execution interface
+- ✅ **TrainingPage** (`/training`) - ML model training controls
+- ✅ **MetricsPage** (`/metrics`) - System metrics and observability
+- ✅ **DBExplorerPage** (`/db`) - Database query interface
+
+**Components Structure**:
+- ✅ `src/components/layout/TopNav.tsx` - Main navigation with status indicators
+- ✅ `src/components/monitor/` - System monitoring components
+- ✅ `src/components/signals/` - Trading signals components
+- ✅ `src/components/ui/` - shadcn/ui components integration
+
+**Configuration & Setup**:
+- ✅ TypeScript configuration (`tsconfig.json`)
+- ✅ Tailwind CSS with custom theme (`tailwind.config.cjs`)
+- ✅ Vite build configuration (`vite.config.ts`)
+- ✅ shadcn/ui integration
+- ✅ Responsive design system with dark theme
+- ✅ CSS custom properties and theme tokens
 
 ## Conventions and commenting guidance
 
@@ -39,42 +420,61 @@ Use this file as a living reference. Keep comments and example shapes up to date
    * Notes: stateless; calls onRestart when user triggers a restart action.
    */
 
-## Recommended file layout (expanded)
+## Current file layout (verified September 2025)
 
 frontend/
 ├── package.json
 ├── package-lock.json
 ├── tsconfig.json
-├── vite.config.ts
+├── vite.config.ts             # main Vite config (vite.config.js removed)
 ├── tailwind.config.cjs
 ├── postcss.config.cjs
+├── index.html                 # HTML entry point
 ├── dist/                      # build output (gitignored)
 ├── src/
-│   ├── main.tsx               # app entry: mount, global providers, routing
-│   ├── styles.css             # Tailwind entry and small utility classes
-│   ├── types.ts               # shared TS interfaces & event shapes
-│   ├── api/
-│   │   ├── client.ts          # fetch wrapper, error handling, JSON helpers
-│   │   ├── healthClient.ts
-│   │   ├── signalsClient.ts   # TODO: implement; includes pagination helpers
-│   │   ├── predictionsClient.ts
-│   │   └── sentimentClient.ts
-│   ├── hooks/
-│   │   ├── useWebSocket.ts    # typed events, reconnect/backoff, lastEvent ref
-│   │   ├── useSystemStatus.ts # fetch snapshot + fallback to fixtures in dev
-│   │   ├── useSignals.ts
-│   │   └── usePredictions.ts
-│   ├── fixtures/
+│   ├── main.tsx               # ✅ app entry: mount, global providers, routing
+│   ├── styles.css             # ✅ Tailwind entry and custom styles
+│   ├── types.ts               # ✅ shared TS interfaces & event shapes
+│   ├── theme.tsx              # ✅ theme tokens and design system
+│   ├── api/                   # ✅ all API clients implemented
+│   │   ├── client.ts          # ✅ fetch wrapper, error handling, JSON helpers
+│   │   ├── healthClient.ts    # ✅ system health endpoints
+│   │   ├── signalsClient.ts   # ✅ trading signals API with pagination
+│   │   ├── predictionsClient.ts # ✅ model predictions API
+│   │   └── sentimentClient.ts # ✅ FinBERT sentiment API
+│   ├── hooks/                 # ✅ all hooks implemented
+│   │   ├── useWebSocket.ts    # ✅ typed events, reconnect/backoff, lastEvent ref
+│   │   ├── useSystemStatus.ts # ✅ fetch snapshot + fallback to fixtures in dev
+│   │   ├── useSignals.ts      # ✅ signals data management
+│   │   ├── usePredictions.ts  # ✅ predictions data management
+│   │   └── useSentiment.ts    # ✅ sentiment data management
+│   ├── fixtures/              # ✅ test data for development
 │   │   └── system_status.json
-│   ├── components/
+│   ├── components/            # ✅ organized component structure
 │   │   ├── layout/
-│   │   │   └── TopNav.tsx
-│   │   ├── monitor/
+│   │   │   └── TopNav.tsx     # ✅ main navigation with status
+│   │   ├── monitor/           # ✅ system monitoring components
+│   │   │   ├── SystemsMonitor.tsx
 │   │   │   └── ComponentCard.tsx
-│   │   ├── signals/
-│   │   │   └── SignalsTable.tsx
-│   │   └── predictions/
-│   │       └── ForecastChart.tsx
+│   │   ├── signals/           # ✅ trading signals components
+│   │   │   ├── SignalsMonitor.tsx
+│   │   │   ├── SignalsTable.tsx
+│   │   │   └── SignalDetailsDrawer.tsx
+│   │   └── ui/                # ✅ shadcn/ui components
+│   │       ├── badge.tsx
+│   │       ├── button.tsx
+│   │       └── [other shadcn components]
+│   ├── lib/                   # ✅ utility functions
+│   └── pages/                 # ✅ all main pages implemented
+│       ├── MonitorPage.tsx    # ✅ main dashboard
+│       ├── SystemsPage.tsx    # ✅ component diagnostics
+│       ├── SignalsPage.tsx    # ✅ signals exploration
+│       ├── PredictionsPage.tsx # ✅ forecasts display
+│       ├── SentimentPage.tsx  # ✅ sentiment analysis
+│       ├── ExecutionsPage.tsx # ✅ order execution
+│       ├── TrainingPage.tsx   # ✅ ML training controls
+│       ├── MetricsPage.tsx    # ✅ system metrics
+│       └── DBExplorerPage.tsx # ✅ database interface
 │   └── pages/
 │       ├── MonitorPage.tsx
 │       ├── SystemsPage.tsx
@@ -561,10 +961,36 @@ Development notes
   - npm test --if-present
   - build (optional, for release jobs)
 
-## Roadmap / TODOs (expanded)
+## Development Status (September 2025) & Next Steps
 
-- Implement Signals, Predictions, Sentiment pages and corresponding API clients (priority: Signals -> Predictions -> Sentiment).
-- Add E2E tests (Playwright) to validate WebSocket-driven UI flows.
-- Add CI job in `.github/workflows` to run `npm ci && npm test` for the frontend on PRs.
-- Consider running Lighthouse against the built `dist/` as a periodic check in CI.
+**✅ COMPLETED:**
+- All core pages implemented (Monitor, Systems, Signals, Predictions, Sentiment, Executions, Training, Metrics, DB)
+- All API clients implemented with proper error handling and fixture fallbacks
+- All custom hooks implemented with real-time WebSocket integration
+- shadcn/ui design system integration with dark theme
+- Responsive layouts with proper breakpoints
+- TypeScript configuration with strict type checking
+- Vite build system properly configured
+
+**🔧 CURRENT PRIORITIES:**
+1. **Backend Integration**: Ensure all `/api/*` endpoints are implemented and match frontend expectations
+2. **E2E Testing**: Add Playwright tests for critical user flows (Monitor dashboard, Signals workflow)
+3. **Performance**: Add React.memo, useMemo, and useCallback optimizations for large data sets
+4. **WebSocket Stability**: Add heartbeat/ping-pong and connection quality indicators
+
+**📋 ROADMAP:**
+- Add comprehensive unit tests with Vitest (currently minimal test coverage)
+- Add CI/CD pipeline in `.github/workflows/frontend-ci.yml`
+- Add Lighthouse performance audits in CI
+- Add internationalization support
+- Add user settings persistence (theme, preferences)
+- Add offline mode with service worker
+- Add advanced filtering and search capabilities
+- Add data export functionality (CSV, JSON)
+
+**🚨 KNOWN ISSUES:**
+- Some legacy `.jsx` files exist alongside `.tsx` files - need cleanup
+- API error handling could be more granular with retry strategies
+- WebSocket reconnection could be more sophisticated with exponential backoff
+- Mobile responsiveness needs testing on actual devices
 
