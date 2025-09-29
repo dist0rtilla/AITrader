@@ -4,3 +4,47 @@ __pycache__/
 venv/
 .vscode/
 config/.env
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Generated Python/Rust/C artifacts
+*.so
+*.dylib
+*.dll
+*.pyd
+*.whl
+
+# Model and large binary artifacts
+models/**/build/
+models/**/dist/
+models/**/*.onnx
+models/**/*.pt
+models/**/*.bin
+models/**/*.tar.gz
+pattern_engine/target/
+pattern_engine/*.trt
+pattern_engine/*.engine
+pattern_engine/onnx/*.onnx
+
+# Tensorrt / Tensorflow / ONNX artifacts
+*.trt
+*.engine
+*.plan
+*.onnx
+
+# Build artifacts
+build/
+dist/
+out/
+*.egg
+
+# Docker build cache (already handled by docker, but exclude local exported tarballs)
+*.tar
+
+# IDE / local dev
+.idea/
+/.local/
+
