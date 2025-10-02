@@ -139,6 +139,48 @@ Important: these commands reclaim space by deleting build artifacts or unused da
   - Prune Docker and remove dangling images:
 
       docker system prune -af && docker volume prune -f
+Last updated: 2025-10-02T16:01:15Z
+
+Aggressive cleanup performed (2025-10-02T16:00:00Z UTC):
+
+- Removed `frontend/node_modules` and `frontend/dist` (backups moved to `/tmp/node_modules_backup_<timestamp>` and `/tmp/frontend_dist_backup_<timestamp>`).
+- Removed local Python virtualenv `.venv` (backup moved to `/tmp/venv_backup_<timestamp>`).
+- Removed Rust `target/` directories for `pattern_engine` and `pattern_engine/pyo3_wrapper` via `cargo clean`.
+- Ran `docker system prune -af` and `docker volume prune -f` reclaiming approximately ~98GB at the time of run.
+
+Rebuild checklist (after aggressive cleanup):
+
+1. Restore node environment and build frontend:
+
+   - If you need to restore the previous node_modules quickly (temporary):
+
+  mv /tmp/node_modules_backup_<timestamp> frontend/node_modules
+
+   - Preferred: reinstall cleanly inside the repo or Docker:
+
+  npm --prefix frontend ci
+  npm --prefix frontend run build
+
+2. Recreate Python virtualenv (if needed):
+
+  python3 -m venv .venv
+  .venv/bin/pip install -r requirements.txt
+
+3. Rebuild Rust extensions and targets (pattern_engine/pyo3):
+
+  cd pattern_engine && cargo build
+  cd pattern_engine/pyo3_wrapper && maturin develop || cargo build
+
+4. Rebuild Docker images used for development (from repo root):
+
+  docker compose build --no-cache
+  docker compose up -d
+
+5. If services fail, consult individual service README files (for example `pattern_engine/README.md`) for service-specific rebuild or model download steps.
+
+Notes:
+- Backups of removed directories are saved under `/tmp` with timestamped names; move them back if you need the exact restored state. They are not retained forever — consider copying them to a persistent location if you wish to keep them long-term.
+- Use the above steps to rebuild locally or inside CI. If you prefer to rebuild only a subset (for example frontend only), use the per-service `hostexecs/` scripts documented in the repo.
 
 13) Maintainer notes
 

@@ -165,3 +165,46 @@ Headless smoke tests (optional)
 
 Contact & ownership
 - If build problems persist, include the output of `docker compose build frontend`, `docker exec <frontend> sed -n '1,200p' /usr/share/nginx/html/index.html`, and `ls -la /usr/share/nginx/html/assets` when opening an issue.
+
+## ⚠️ Aggressive cleanup note
+
+If aggressive cleanup was performed on the developer host (for example: removing `frontend/node_modules`, `frontend/dist`, `.venv`, or running `docker system prune -af`), follow these steps to restore or rebuild the environment:
+
+1. If quick restore is required and backups were saved under `/tmp` (timestamped):
+
+   - Restore node modules (temporary):
+
+     mv /tmp/node_modules_backup_<timestamp> frontend/node_modules
+
+   - Restore frontend dist (temporary):
+
+     mv /tmp/frontend_dist_backup_<timestamp> frontend/dist
+
+   - Restore Python virtualenv (temporary):
+
+     mv /tmp/venv_backup_<timestamp> .venv
+
+2. Preferred rebuild workflow (recommended):
+
+   - Reinstall node deps and build the frontend:
+
+     npm --prefix frontend ci
+     npm --prefix frontend run build
+
+   - Recreate Python virtualenv and install deps:
+
+     python3 -m venv .venv
+     .venv/bin/pip install -r requirements.txt
+
+   - Rebuild Rust extensions (if used):
+
+     cd pattern_engine && cargo build
+
+   - Rebuild Docker images and start services:
+
+     docker compose build --no-cache
+     docker compose up -d
+
+3. If you run into missing model weights or runtime caches (TensorRT/ONNX), consult the per-service README files in `pattern_engine/`, `tensorrt_runner/`, or `models/` for download and restore steps.
+
+Keep a backup of any `/tmp` restores if you need to preserve the previous state beyond the current boot session.
