@@ -35,6 +35,7 @@ graph TB
         TensorRTRunner[⚡ TensorRT Runner<br/>:8007<br/>GPU Inference]
         SentimentEngine[💭 Sentiment Engine<br/>:8002<br/>NLP Analysis]
         FinBERT[🎭 FinBERT Server<br/>:8004<br/>Financial Sentiment]
+        PredictionsEngine[📈 Predictions Engine<br/>:8011<br/>Rolling + On‑Demand + Persist]
     end
     
     %% API Layer
@@ -50,6 +51,7 @@ graph TB
     %% Service Connections - Data Flow
     TickReplay --> |raw ticks| PatternEngine
     PatternEngine --> |signals| Redis
+    PatternEngineCluster[⚡ Pattern Engine Replicas] -. weighted partitions .- PatternEngine
     Redis --> |signals:global| StrategyEngine
     
     %% Strategy Engine Connections (MISSING - TO BE IMPLEMENTED)
@@ -69,23 +71,27 @@ graph TB
     SentimentEngine --> |HTTP calls| FinBERT
     ONNXRunner --> |model files| ModelStorage[📁 ./models/]
     TensorRTRunner --> |TRT engines| ModelStorage
+    PredictionsEngine --> |history| YFinance[🧾 yfinance]
     
     %% Backend Integration
     Backend --> |queries| Postgres
     Backend --> |pub/sub| Redis
     Backend --> |HTTP calls| ONNXRunner
     Backend --> |HTTP calls| SentimentEngine
+    Backend --> |HTTP calls| PredictionsEngine
     Backend --> |WebSocket| Frontend
     
     %% Worker Jobs
     Worker --> |consume jobs| Redis
     Worker --> |training jobs| ONNXRunner
     Worker <--> |job status| Postgres
+    PredictionsEngine --> |persist forecasts/metrics| Postgres
     
     %% Frontend Connections  
     Frontend --> |HTTP/WS| Backend
     Frontend --> |direct calls| ONNXRunner
     Frontend --> |direct calls| SentimentEngine
+    Frontend --> |direct calls| PredictionsEngine
     
     %% Styling
     classDef infrastructure fill:#e1f5fe
@@ -124,12 +130,14 @@ graph TB
 - 💭 **Sentiment Engine** (port 8002) - Sentiment analysis for symbol filtering
 - ⚡ **TensorRT Runner** (port 8007) - GPU-accelerated predictions
 - 💼 **Execution Engine** (port 8006) - Proper order management
+ - 📈 **Predictions Engine** (port 8011) - Rolling snapshots and on-demand inference
 
 **Missing Integration Points:**
 - No ML model consultation for trade decisions
 - No sentiment analysis integration  
 - No sophisticated risk management
 - Limited MCP account context usage
+ - No consumption of `forecasts:{symbol}:{horizon}` snapshots
 
 ---
 

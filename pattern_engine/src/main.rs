@@ -220,6 +220,7 @@ struct AppState {
 /// Health check response
 #[derive(Serialize)]
 struct HealthResponse {
+    ok: bool,
     status: String,
     active_symbols: usize,
     signals_stream: String,
@@ -491,6 +492,7 @@ async fn health_check(State(state): State<AppState>) -> Json<HealthResponse> {
         .as_secs_f64();
 
     Json(HealthResponse {
+        ok: true,
         status: "healthy".to_string(),
         active_symbols,
         signals_stream: "signals:global".to_string(),

@@ -94,3 +94,4 @@ tzdata==2025.2
 urllib3==2.5.0
 watchdog==6.0.0
 zope.interface==8.0
+psutil==5.9.6

@@ -1,4 +1,4 @@
-# See docs/fast-builds.md for recommended fast-iteration .dockerignore tips
+. # See docs/fast-builds.md for recommended fast-iteration .dockerignore tips
 node_modules
 .git
 .gitignore
@@ -57,35 +57,3 @@ pattern_engine/onnx/**
 .idea
 tmp/
 *.log
-# Fast build ignore rules (use when you need minimal build contexts)
-# Copy these lines into .dockerignore for local fast-iteration builds
-
-# Node and frontend
-frontend/node_modules
-frontend/dist
-**/node_modules
-
-# Large model artifacts (temporarily INCLUDED for build)
-# models/
-# pattern_engine/onnx/
-# pattern_engine/onnx/**
-
-# Python caches
-**/__pycache__/
-**/*.pyc
-.venv/
-.env
-
-# Tests and docs
-**/tests/
-**/*.test.*
-
-# Git and IDE
-.git
-.vscode
-.idea
-
-# Temp
-tmp/
-*.log
-

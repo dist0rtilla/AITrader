@@ -15,6 +15,7 @@ from typing import Dict, Optional
 from pattern_engine.runner import run_replay, default_model_stub
 from pattern_engine.state import EMA, VWAP, Welford
 from pattern_engine.config import cfg
+from pattern_engine.partitioning import load_symbol_weights, select_partition_symbols
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -112,6 +113,12 @@ class PatternDetector:
                 
                 self.last_signal_time = timestamp
                 
+                # Confidence is the normalized absolute score for hints
+                confidence = min(1.0, max(0.0, abs(signal_score)))
+                # Suggest TP/SL based on confidence (strategy may override)
+                tp_hint = cfg.tp_base_pct + cfg.tp_confidence_scale * confidence
+                sl_hint = cfg.sl_base_pct + cfg.sl_confidence_scale * confidence
+
                 return {
                     "id": f"{self.symbol}_{int(timestamp)}",
                     "symbol": self.symbol,
@@ -123,7 +130,10 @@ class PatternDetector:
                         "ema_slow": ema_slow,
                         "vwap": vwap_price,
                         "volume": volume,
-                        "volatility": self.welford.std if self.welford.count > 1 else 0.0
+                        "volatility": self.welford.std if self.welford.count > 1 else 0.0,
+                        "confidence": confidence,
+                        "tp_hint_pct": tp_hint,
+                        "sl_hint_pct": sl_hint
                     }
                 }
             
@@ -140,8 +150,11 @@ class PatternDetector:
     async def generate_mock_ticks(self):
         """Generate mock tick data for testing (replace with real feed)"""
         import random
-        
-        symbols = ["AAPL", "GOOGL", "MSFT", "TSLA", "AMZN"]
+        # Source symbols could be provided by config/service; for demo keep static list
+        all_symbols = ["AAPL", "GOOGL", "MSFT", "TSLA", "AMZN"]
+        weights = load_symbol_weights(cfg.symbol_weights_file)
+        hot = [s.strip().upper() for s in (cfg.hot_symbols or '').split(',') if s.strip()]
+        symbols = select_partition_symbols(all_symbols, weights, cfg.partition_count, cfg.partition_index, hot)
         base_prices = {"AAPL": 150.0, "GOOGL": 2800.0, "MSFT": 380.0, "TSLA": 250.0, "AMZN": 3400.0}
         
         logger.info("Generating mock tick data for pattern detection")
@@ -195,11 +208,26 @@ class PatternDetector:
             await asyncio.sleep(1.0)  # 1 second between batches
     
     async def health_check_server(self):
-        """Simple health check endpoint"""
+        """Simple health and metrics HTTP endpoints.
+
+        Exposes:
+          GET /health  -> JSON, includes an `ok` boolean for frontend/backends
+          GET /metrics -> Prometheus-style plain text metrics (basic process stats)
+        """
         from aiohttp import web
-        
+
+        # try to import psutil for richer metrics; it's optional
+        try:
+            import psutil
+        except Exception:
+            psutil = None
+
+        start_time = time.time()
+
         async def health_handler(request):
+            # Normalize to frontend expectation: include ok True/False
             status = {
+                "ok": True,
                 "status": "healthy",
                 "active_symbols": len(self.symbol_states),
                 "signals_stream": SIGNALS_STREAM,
@@ -207,15 +235,68 @@ class PatternDetector:
                 "timestamp": time.time()
             }
             return web.json_response(status)
-        
+
+        async def metrics_handler(request):
+            # Return a tiny set of Prometheus-style metrics
+            # process_resident_memory_bytes, process_cpu_seconds_total, uptime_seconds
+            uptime = time.time() - start_time
+            mem_bytes = None
+            cpu_seconds = None
+            if psutil is not None:
+                try:
+                    p = psutil.Process()
+                    mem_bytes = p.memory_info().rss
+                    cpu_times = p.cpu_times()
+                    cpu_seconds = cpu_times.user + cpu_times.system
+                except Exception:
+                    mem_bytes = None
+                    cpu_seconds = None
+
+            # Fallback: try to read /proc (Linux) if psutil not available
+            if psutil is None:
+                try:
+                    with open('/proc/self/stat', 'r') as f:
+                        stat = f.read().split()
+                        # field 14/15 are utime/stime in clock ticks
+                        utime = float(stat[13])
+                        stime = float(stat[14])
+                        # clock ticks per second
+                        clk = os.sysconf(os.sysconf_names['SC_CLK_TCK'])
+                        cpu_seconds = (utime + stime) / clk
+                except Exception:
+                    cpu_seconds = None
+                try:
+                    with open('/proc/self/status', 'r') as f:
+                        for line in f:
+                            if line.startswith('VmRSS:'):
+                                parts = line.split()
+                                # value in kB
+                                mem_kb = float(parts[1])
+                                mem_bytes = int(mem_kb * 1024)
+                                break
+                except Exception:
+                    mem_bytes = None
+
+            lines = []
+            if mem_bytes is not None:
+                lines.append(f"process_resident_memory_bytes {int(mem_bytes)}")
+            if cpu_seconds is not None:
+                # expose with 3 decimal places
+                lines.append(f"process_cpu_seconds_total {float(cpu_seconds):.3f}")
+            lines.append(f"process_uptime_seconds {float(uptime):.3f}")
+
+            body = "\n".join(lines) + "\n"
+            return web.Response(text=body, content_type='text/plain; version=0.0.4')
+
         app = web.Application()
         app.router.add_get('/health', health_handler)
-        
+        app.router.add_get('/metrics', metrics_handler)
+
         runner = web.AppRunner(app)
         await runner.setup()
         site = web.TCPSite(runner, '0.0.0.0', 8005)
         await site.start()
-        logger.info("Health check server started on port 8005")
+        logger.info("Health & metrics server started on port 8005")
 
 async def main():
     """Main service entry point"""

@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional
+import yfinance as yf
 import logging
 import os
 import requests
@@ -146,3 +147,23 @@ async def analyze(req: AnalyzeRequest):
 @app.get("/health")
 async def health():
     return {"ok": True, "has_hf": HAS_HF}
+
+
+@app.get("/api/news")
+async def get_news(symbol: str):
+    """Fetch recent headlines via yfinance as placeholder news feed."""
+    try:
+        ticker = yf.Ticker(symbol)
+        news = ticker.news or []
+        items = []
+        for n in news[:20]:
+            items.append({
+                "symbol": symbol,
+                "title": n.get("title"),
+                "publisher": n.get("publisher"),
+                "providerPublishTime": n.get("providerPublishTime"),
+                "link": n.get("link")
+            })
+        return {"symbol": symbol, "news": items}
+    except Exception as e:
+        return {"symbol": symbol, "news": [], "error": str(e)}

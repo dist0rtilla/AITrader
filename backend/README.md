@@ -64,6 +64,7 @@ docker compose -f docker-compose.production.yml up backend
 - **API**: http://localhost:8000
 - **OpenAPI Docs**: http://localhost:8000/docs
 - **WebSocket**: ws://localhost:8000/ws
+ - **Predictions Engine**: http://localhost:8011 (health: `/health`, latest: `/forecasts/latest`)
 
 ## 📡 API Endpoints
 
@@ -203,6 +204,11 @@ python -m pdb -c continue main.py
 - Sends pattern signals and market context
 - Receives trading decisions and risk metrics
 - Tracks strategy performance
+
+### Predictions Engine Integration
+- Provides rolling forecast snapshots in Redis keys: `forecasts:{symbol}:{horizon}`
+- Streams history in `forecasts_stream:{symbol}`
+- On-demand inference via `POST /infer/forecast/nbeats`
 
 ### Frontend Integration
 - Provides REST APIs for dashboard data

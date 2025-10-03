@@ -193,6 +193,36 @@ services:
       retries: 3
     restart: unless-stopped
 
+  predictions_engine:
+    build:
+      context: .
+      dockerfile: predictions_engine/Dockerfile
+    image: ai_trader_predictions_engine:latest
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - ONNX_RUNNER_URL=http://onnx_runner:8001
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/aitrader
+      - PRED_SYMBOLS=AAPL,MSFT,GOOGL
+      - PRED_HORIZONS=1m,5m,1h
+      - PRED_INTERVAL_MS=60000
+      - PRED_SNAPSHOT_TTL_SEC=180
+      - PRED_PORT=8011
+      - PRED_DATA_SOURCE=yfinance
+      - INFER_BACKEND=tensorrt
+      - TENSORRT_RUNNER_URL=http://tensorrt_runner:8007
+    ports:
+      - "8011:8011"
+    depends_on:
+      - redis
+      - onnx_runner
+      - postgres
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8011/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
   # Static frontend served by nginx
   frontend:
     build:

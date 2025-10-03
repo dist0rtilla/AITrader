@@ -162,6 +162,7 @@ Both APIs use fixture data during development:
 - `sentiment_engine`: Port 8002, FinBERT sentiment analysis
 - `finbert_server`: Port 5000, dedicated FinBERT model server
 - `tensorrt_runner`: Port 8007, GPU-accelerated inference
+ - `predictions_engine`: Port 8011, rolling forecasts + on-demand inference
 
 ### Environment Variables
 - `DATABASE_URL`: PostgreSQL database connection string
@@ -173,6 +174,64 @@ Both APIs use fixture data during development:
 - `ONNX_RUNNER_URL`: ONNX Runner service URL
 - `SENTIMENT_ENGINE_URL`: Sentiment Engine service URL
 - `TENSORRT_RUNNER_URL`: TensorRT Runner service URL
+ - `INFER_BACKEND`: `onnx` | `tensorrt` | `auto` (default `auto`)
+ - `TENSORRT_RUNNER_URL`: TensorRT Runner service URL used when backend is `tensorrt` or `auto`
+ - `PRED_SYMBOLS`: Comma-separated symbols to forecast (e.g., `AAPL,MSFT`)
+ - `PRED_HORIZONS`: Comma-separated horizons (e.g., `1m,5m,1h`)
+ - `PRED_INTERVAL_MS`: Rolling forecast interval in ms (default 60000)
+ - `PRED_SNAPSHOT_TTL_SEC`: Redis TTL for latest snapshot (default 180)
+ - `PRED_PORT`: Predictions Engine port (default 8011)
+ - `PRED_DATA_SOURCE`: Data source for history (default `yfinance`)
+
+## Predictions API (Backend integration target)
+
+The `predictions_engine` service provides rolling forecasts and on-demand inference.
+
+### Endpoints
+
+- `GET /health`
+  - Returns service status, configured symbols and horizons.
+
+- `GET /forecasts/latest?symbol=SYMB&horizon=1m`
+  - Returns the latest forecast snapshot from Redis.
+  - Sources: `forecasts:{symbol}:{horizon}` (JSON; TTL controlled by env).
+
+- `POST /infer/forecast/nbeats`
+  - Body: `{ symbol, history: number[], horizon }`
+  - Returns: `{ symbol, horizon, timestamp, forecast[], confidence[], model }`
+  - Uses configured inference backend (ONNX/TensorRT) with auto-fallback when `INFER_BACKEND=auto`.
+
+- `POST /forecasts/eval`
+  - Body: `{ symbol, horizon, model?, predicted_at?, realized }`
+  - Persists realized outcome and computes basic errors (abs, pct) for feedback loop
+  - Stored in `forecast_metrics` table for backtesting/leaderboard
+
+- `GET /forecasts/series?symbol=SYMB&horizon=1m&limit=200`
+  - Returns chronological series of forecast payloads for charting.
+  - Source: `forecasts_stream:{symbol}`
+
+- `POST /forecasts/align`
+  - Body: `{ symbol, horizon, forecast?: {..}, actuals: { start_timestamp, step_seconds, values[] } }`
+  - Returns aligned arrays `{ start_timestamp, step_seconds, actuals[], forecast[] }` for overlay charts.
+
+### Redis Keys/Streams
+## Input Streams (Pluggable Data Sources)
+
+The Predictions Engine uses a pluggable data source abstraction for historical price series.
+
+- Default: `yfinance` (env: `PRED_DATA_SOURCE=yfinance`)
+- Interface: `MarketDataSource.get_history(symbol, points, interval)`
+- Extensibility: implement new sources and map via `PRED_DATA_SOURCE` (e.g., `alpaca`, `polygon`, `kafka_ticks`).
+- `forecasts:{symbol}:{horizon}`: latest snapshot (JSON value, short TTL)
+- `forecasts_stream:{symbol}`: append-only history entries
+
+### Persistence (Feedback Loop)
+- Tables:
+  - `forecasts`: symbol, horizon, model, timestamp, forecast[], confidence[]
+  - `forecast_metrics`: symbol, horizon, model, timestamp, realized, error_abs, error_pct
+- Use cases:
+  - Backtest predictions vs realized outcomes
+  - Compute model rewards/leaderboards by horizon and symbol
 
 ## Frontend Integration
 

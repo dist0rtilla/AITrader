@@ -14,7 +14,7 @@ services:
   redis:
     image: redis:7
     ports:
-      - "6379:6379"
+      - "6380:6379"
 
   mock-mcp:
     build:
@@ -91,7 +91,14 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    command: ["python", "-u", "pattern_engine/pattern_detector.py"]
+    command: ["python", "-u", "-m", "pattern_engine.pattern_detector"]
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "8005:8005"
+    volumes:
+      - ./models:/models:ro
+      - ./pattern_engine:/app/pattern_engine:ro
     depends_on:
       - redis
 
@@ -211,7 +218,7 @@ services:
       - ./frontend/tsconfig.json:/app/tsconfig.json:ro
       - ./frontend/tailwind.config.cjs:/app/tailwind.config.cjs:ro
       - ./frontend/postcss.config.cjs:/app/postcss.config.cjs:ro
-      # Exclude node_modules from volume mounting (use container's version)
+      # Keep container's node_modules by mounting an anonymous volume (prevents host from hiding it)
       - /app/node_modules
     environment:
       - NODE_ENV=development

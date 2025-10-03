@@ -53,6 +53,18 @@ class PatternEngineConfig:
     redis_max_retries: int = _env_int('REDIS_MAX_RETRIES', 3)
     redis_retry_delay_seconds: float = _env_float('REDIS_RETRY_DELAY', 0.5)
 
+    # TP/SL scaling based on confidence
+    tp_base_pct: float = _env_float('PATTERN_TP_BASE_PCT', 0.006)
+    sl_base_pct: float = _env_float('PATTERN_SL_BASE_PCT', 0.006)
+    tp_confidence_scale: float = _env_float('PATTERN_TP_CONF_SCALE', 0.010)
+    sl_confidence_scale: float = _env_float('PATTERN_SL_CONF_SCALE', 0.010)
+
+    # Partitioning / clustering
+    partition_count: int = _env_int('PARTITION_COUNT', 1)
+    partition_index: int = _env_int('PARTITION_INDEX', 0)
+    symbol_weights_file: str = os.environ.get('SYMBOL_WEIGHTS_FILE', '')
+    hot_symbols: str = os.environ.get('HOT_SYMBOLS', '')  # comma-separated optional
+
 
 # single module-level config instance for simple imports
 cfg = PatternEngineConfig()

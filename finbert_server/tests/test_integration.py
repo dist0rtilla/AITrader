@@ -25,5 +25,3 @@ def test_predict_integration(tmp_path):
         assert isinstance(j, list)
         assert 'label' in j[0]
         assert 'score' in j[0]
-
-*** End Patch

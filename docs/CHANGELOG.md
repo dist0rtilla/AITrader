@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Predictions/Forecasting Engine service (`predictions_engine/`) providing rolling forecasts and on-demand inference
+- **Input Streams Abstraction**: Added pluggable data sources with default `yfinance`
+  - New module: `predictions_engine/data_sources/` with `MarketDataSource` and `YFinanceSource`
+  - `PRED_DATA_SOURCE` env to select source; `yfinance` as default
+  - Predictions Engine now pulls historical prices from pluggable source
+- **GPU Support in Predictions Engine**: Selectable inference backend (ONNX/TensorRT) with auto-fallback
+  - Env: `INFER_BACKEND=onnx|tensorrt|auto` (default `auto`)
+  - Env: `TENSORRT_RUNNER_URL` to target TRT runner
+- **Pattern Engine Clustering**: Liquidity/volatility-weighted partitioning support
+  - Config: `PARTITION_COUNT`, `PARTITION_INDEX`, `SYMBOL_WEIGHTS_FILE`, `HOT_SYMBOLS`
+  - Greedy bin-packing balances symbol cost across replicas; deterministic selection
+  - REST: `GET /health`, `GET /forecasts/latest`, `POST /infer/forecast/nbeats`
+  - Redis publications:
+    - `forecasts:{symbol}:{horizon}` (latest snapshot JSON, TTL)
+    - `forecasts_stream:{symbol}` (append-only history)
+  - Scheduler to produce rolling forecasts per symbol/horizon
+  - Docker Compose integration with healthcheck and env configuration
 - **ML Inference Architecture**: Established ONNX Runner and TensorRT Runner as parallel services
   - ONNX Runner: CPU-focused inference with multi-provider support (CPU, CUDA, fallback)
   - TensorRT Runner: GPU-optimized inference with NVIDIA TensorRT acceleration

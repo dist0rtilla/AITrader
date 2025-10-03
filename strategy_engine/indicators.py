@@ -124,4 +124,4 @@ class IndicatorStore:
             return None
         return sum(tr_list) / len(tr_list)
 
-*** End of File
+ 

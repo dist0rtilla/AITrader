@@ -33,8 +33,13 @@ TICKS_STREAM = 'ticks:global'
 # Trading parameters
 REWARD_SCALE = float(os.environ.get('REWARD_SCALE', '1.0'))
 LOSS_MULTIPLIER = float(os.environ.get('LOSS_MULTIPLIER', '3.0'))
+# Take-profit / Stop-loss thresholds (percent as decimal)
+TAKE_PROFIT_PCT = float(os.environ.get('TAKE_PROFIT_PCT', '0.006'))  # 0.6%
+STOP_LOSS_PCT = float(os.environ.get('STOP_LOSS_PCT', '0.006'))      # 0.6%
 MIN_SIGNAL_THRESHOLD = float(os.environ.get('MIN_SIGNAL_THRESHOLD', '0.3'))
 MAX_POSITION_SIZE = int(os.environ.get('MAX_POSITION_SIZE', '1000'))
+TP_OVERRIDE_PCT = os.environ.get('TP_OVERRIDE_PCT')
+SL_OVERRIDE_PCT = os.environ.get('SL_OVERRIDE_PCT')
 
 class EnhancedStrategyEngine:
     """Enhanced Strategy Engine with ML integration"""
@@ -60,6 +65,9 @@ class EnhancedStrategyEngine:
             "sentiment_analyses": 0,
             "errors": 0
         }
+        # Position tracking and latest price cache
+        self.positions: Dict[str, Dict[str, float]] = {}
+        self.last_price: Dict[str, float] = {}
         
     async def initialize(self):
         """Initialize Redis consumer groups and ML services"""
@@ -146,6 +154,13 @@ class EnhancedStrategyEngine:
             # Combined scoring
             combined_score = self.calculate_combined_score(factors)
             
+            # TP/SL selection (override > hints > defaults)
+            confidence = float(signal.get('meta', {}).get('confidence', ml_analysis.get('combined_confidence', 0.0)))
+            tp_hint = float(signal.get('meta', {}).get('tp_hint_pct', TAKE_PROFIT_PCT))
+            sl_hint = float(signal.get('meta', {}).get('sl_hint_pct', STOP_LOSS_PCT))
+            tp_pct = float(TP_OVERRIDE_PCT) if TP_OVERRIDE_PCT else max(0.0001, tp_hint)
+            sl_pct = float(SL_OVERRIDE_PCT) if SL_OVERRIDE_PCT else max(0.0001, sl_hint)
+
             # Position sizing
             position_size = self.calculate_position_size(
                 combined_score, factors, atr14, current_price
@@ -161,9 +176,12 @@ class EnhancedStrategyEngine:
                 return None
             
             # Create order
-            order = await self.create_order(
-                symbol, side, position_size, combined_score, factors
-            )
+            factors.update({
+                "tp_pct": tp_pct,
+                "sl_pct": sl_pct,
+                "confidence": confidence
+            })
+            order = await self.create_order(symbol, side, position_size, combined_score, factors)
             
             # Log decision
             logger.info(
@@ -417,6 +435,55 @@ class EnhancedStrategyEngine:
             except Exception as e:
                 logger.error(f"Signal stream processing error: {e}")
                 await asyncio.sleep(5)  # Back off on errors
+
+    async def process_ticks_stream(self):
+        """Monitor ticks and trigger TP/SL closes when thresholds hit."""
+        logger.info(f"Starting tick processing from {TICKS_STREAM}")
+        while True:
+            try:
+                messages = self.redis_client.xreadgroup(
+                    self.consumer_group,
+                    self.consumer_name,
+                    {TICKS_STREAM: '>'},
+                    count=50,
+                    block=1000
+                )
+                for stream_name, msgs in messages:
+                    for msg_id, fields in msgs:
+                        try:
+                            tick = dict(fields)
+                            symbol = tick.get('symbol')
+                            price = float(tick.get('price', 0) or 0)
+                            if symbol and price > 0:
+                                self.last_price[symbol] = price
+                                await self.evaluate_close_conditions(symbol, price)
+                            self.redis_client.xack(TICKS_STREAM, self.consumer_group, msg_id)
+                        except Exception as e:
+                            logger.error(f"Error processing tick {msg_id}: {e}")
+            except Exception as e:
+                logger.error(f"Tick stream processing error: {e}")
+                await asyncio.sleep(2)
+
+    async def evaluate_close_conditions(self, symbol: str, price: float):
+        pos = self.positions.get(symbol)
+        if not pos:
+            return
+        qty = pos.get('qty', 0.0)
+        avg = pos.get('avg_price', 0.0)
+        if qty == 0 or avg <= 0:
+            return
+        direction = 1.0 if qty > 0 else -1.0
+        ret = (price - avg) / avg * direction
+        if ret >= TAKE_PROFIT_PCT:
+            await self.close_position(symbol, abs(qty), price, 'take_profit')
+        elif ret <= -STOP_LOSS_PCT:
+            await self.close_position(symbol, abs(qty), price, 'stop_loss')
+
+    async def close_position(self, symbol: str, quantity: float, price: float, reason: str):
+        side = 'SELL' if self.positions.get(symbol, {}).get('qty', 0.0) > 0 else 'BUY'
+        factors = {"reason": reason, "trigger_price": price, "tp_pct": TAKE_PROFIT_PCT, "sl_pct": STOP_LOSS_PCT}
+        order = await self.create_order(symbol, side, int(quantity), 1.0 if reason == 'take_profit' else -1.0, factors)
+        await self.publish_order(order)
     
     async def process_fills_stream(self):
         """Process fill confirmations for P&L tracking"""
@@ -465,6 +532,25 @@ class EnhancedStrategyEngine:
                 
                 db.commit()
                 logger.info(f"Updated execution {order_id} with fill price {execution.price}")
+
+            # Update in-memory positions
+            symbol = fill.get('symbol') or (execution.symbol if execution else None)
+            side = (fill.get('side') or '').upper() or (execution.side.upper() if execution and execution.side else '')
+            qty = float(fill.get('qty', 0) or 0)
+            price = float(fill.get('price', 0) or 0)
+            if symbol and qty > 0 and price > 0 and side in ("BUY", "SELL"):
+                pos = self.positions.get(symbol, {"qty": 0.0, "avg_price": 0.0})
+                signed_qty = qty if side == "BUY" else -qty
+                new_qty = pos["qty"] + signed_qty
+                if new_qty == 0:
+                    pos = {"qty": 0.0, "avg_price": 0.0}
+                elif pos["qty"] == 0:
+                    pos = {"qty": new_qty, "avg_price": price}
+                else:
+                    pos_value = pos["avg_price"] * pos["qty"]
+                    pos = {"qty": new_qty, "avg_price": max(0.0, (pos_value + signed_qty * price) / new_qty)}
+                self.positions[symbol] = pos
+                logger.info(f"Position updated {symbol}: qty={pos['qty']:.2f}, avg={pos['avg_price']:.4f}")
             
         except Exception as e:
             logger.error(f"Fill processing failed: {e}")
@@ -511,7 +597,8 @@ class EnhancedStrategyEngine:
         await asyncio.gather(
             self.health_check_server(),
             self.process_signals_stream(),
-            self.process_fills_stream()
+            self.process_fills_stream(),
+            self.process_ticks_stream()
         )
     
     async def shutdown(self):

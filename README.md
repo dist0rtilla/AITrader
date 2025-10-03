@@ -15,6 +15,7 @@ All project documentation is centralized in the [docs/](./docs/) directory:
 - **[Architecture Overview](./docs/architecture/SERVICE_MAP.md)** - System architecture and services
 - **[Frontend Instructions](./docs/frontend/FRONTEND_INSTRUCTIONS.md)** - UI development guide
 - **[Copilot Instructions](./docs/instructions/copilot-instructions.md)** - Development guidelines
+ - **[Maintenance & Cleanup](./docs/MAINTENANCE.md)** - Developer maintenance tasks to reclaim disk and resources
 
 ### 🚨 **Development Workflow Requirement**
 **Before making any changes, always update the [changelog](./docs/CHANGELOG.md) with a timestamped entry:**
