@@ -188,3 +188,4 @@ Notes:
   - Add service-specific maintenance notes in each service README if they require extra steps (for example, TensorRT caches, ONNX runtime bundles, or model weights stored outside the repo).
 
 Last updated: 2025-10-02T15:51:10Z
+\nAdditional cleanup (performed 2025-10-03):\n\n- Rewrote the WIP history to remove large binary artifacts (virtualenvs, node_modules, frontend builds, Rust targets and model binaries) and created a cleaned branch `cleaned-wip-20251003T162952Z` containing only source and small build artifacts. A backup of the WIP state is available in `wip-before-reset-20251003T140324Z` and `backup-local-20251003T141600Z` in the repository.\n\n- If you need any of the removed binaries or environment snapshots, restore them from /tmp backups created during the aggressive cleanup or from the backup branches above.\n\nNotes:\n- The cleaned branch is pushed as `cleaned-wip-20251003T162952Z` on origin. Review via the generated PR and merge when ready.\n
