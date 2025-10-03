@@ -1,4 +1,5 @@
 # See docs/fast-builds.md for recommended fast-iteration .dockerignore tips
+# NOTE: models/ and other large binary/artifact paths are intentionally ignored to avoid committing large files.
 node_modules
 .git
 .gitignore
