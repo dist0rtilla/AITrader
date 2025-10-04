@@ -77,3 +77,30 @@ out/
 .idea/
 /.local/
 
+# Common repo-level files and local artifacts to ignore
+dev.db
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile.backend
+Dockerfile.frontend
+Makefile
+
+# Node modules at repo root
+node_modules/
+
+# Frontend local config / sources (some duplicated dirs already ignored above)
+frontend/frontend/vite.config.js
+frontend/src/main.jsx
+
+# Mock server and local test servers
+mock_mcp/server.py
+
+# Backends and build caches
+backend/config.json
+backend/*.pyc
+backend/__pycache__/
+
+# pattern_engine build artifacts (already some are present but be explicit)
+pattern_engine/native/
+pattern_engine/target/
+

@@ -13,6 +13,7 @@ frontend/node_modules
 /tmp/*.log
 /tmp/*.pid
 
+# NOTE: models/ and other large binary/artifact paths are intentionally ignored to avoid committing large files.
 # Development and cache files
 npm-debug.log*
 yarn-debug.log*
@@ -57,3 +58,4 @@ pattern_engine/onnx/**
 .idea
 tmp/
 *.log
+```plaintext
