@@ -88,6 +88,40 @@ Makefile
 # Node modules at repo root
 node_modules/
 
+# Ignore any nested node_modules directories anywhere
+**/node_modules/
+
+# Frontend build and public assets
+frontend/public/
+frontend/dist/
+frontend/frontend/dist/
+
+# Project data and generated datasets
+data/
+market_data/
+
+# Local design and docs drafts
+design/
+
+# Execution gateway simulator and local tools
+execution_gateway/
+
+# Local model and build directories that shouldn't be committed
+models/
+predictions_engine/
+
+# Ensure pattern_engine build outputs are ignored
+pattern_engine/target/
+pattern_engine/native/
+
+# Mock and local servers
+mock_mcp/
+
+# Node package lockfiles and optional local artifacts
+package-lock.json
+yarn.lock
+
+
 # Frontend local config / sources (some duplicated dirs already ignored above)
 frontend/frontend/vite.config.js
 frontend/src/main.jsx
